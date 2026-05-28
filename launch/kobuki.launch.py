@@ -1,0 +1,209 @@
+import os
+
+from ament_index_python.packages import get_package_share_directory
+from launch import LaunchDescription
+from launch.actions import (
+    DeclareLaunchArgument,
+    GroupAction,
+    IncludeLaunchDescription,
+    OpaqueFunction,
+    SetLaunchConfiguration
+)
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import LaunchConfiguration
+from launch_ros.actions import Node
+import yaml
+
+
+
+
+def start_description(context):
+
+    description = []
+
+    camera = DeclareLaunchArgument('camera', default_value='false')
+    description.append(camera)
+
+    lidar = DeclareLaunchArgument('lidar', default_value='false')
+    description.append(lidar)
+
+    if (LaunchConfiguration('xtion').perform(context) == 'true' or
+            LaunchConfiguration('astra').perform(context) == 'true'):
+        description.append(SetLaunchConfiguration('camera', 'true'))
+
+    if (LaunchConfiguration('lidar_a2').perform(context) == 'true' or
+            LaunchConfiguration('lidar_s2').perform(context) == 'true'):
+        description.append(SetLaunchConfiguration('lidar', 'true'))
+
+    robot_description = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(get_package_share_directory('kobuki_description'),
+                         'launch/kobuki_description.launch.py')
+        ),
+        launch_arguments={
+            'lidar': LaunchConfiguration('lidar'),
+            'lidar_position_x': '0',
+            'lidar_position_y': '0',
+            'lidar_position_z': '0.37',
+            'lidar_orientation_roll': '3.14',
+            'lidar_orientation_pitch': '0',
+            'lidar_orientation_yaw': '0',
+        }.items()
+    )
+
+    return description + [robot_description]
+
+
+def start_lidar(context):
+
+    package_dir = get_package_share_directory('kobuki')
+    filter_file = os.path.join(package_dir, 'config', 'footprint_filter.yaml')
+
+    if LaunchConfiguration('lidar_a2').perform(context) == 'true':
+        rplidar_cmd = Node(
+            package='rplidar_ros',
+            executable='rplidar_composition',
+            output='screen',
+            namespace=LaunchConfiguration('namespace'),
+            parameters=[{
+                'serial_port': '/dev/rplidar',
+                'serial_baudrate': 115200,  # A1 / A2
+                'frame_id': 'laser_link',
+                'inverted': False,
+                'flip_x_axis': True,
+                'namespace': LaunchConfiguration('namespace'),
+                'angle_compensate': True,
+            }],
+        )
+
+        laser_filter_cmd = Node(
+            package='laser_filters',
+            executable='scan_to_scan_filter_chain',
+            namespace=LaunchConfiguration('namespace'),
+            parameters=[filter_file],
+        )
+
+        return [rplidar_cmd, laser_filter_cmd]
+
+    if LaunchConfiguration('lidar_s2').perform(context) == 'true':
+        rplidar__s2_cmd = Node(
+            package='rplidar_ros',
+            executable='rplidar_composition',
+            output='screen',
+            namespace=LaunchConfiguration('namespace'),
+            parameters=[{
+                'serial_port': '/dev/rplidar',
+                'serial_baudrate': 1000000,  # S2
+                'frame_id': 'laser_link',
+                'inverted': False,
+                'flip_x_axis': True,  # todo(juandpenan) check with this with the new TF
+                'namespace': LaunchConfiguration('namespace'),
+                'angle_compensate': True,
+            }],
+        )
+
+        laser_filter_s2_cmd = Node(
+            package='laser_filters',
+            executable='scan_to_scan_filter_chain',
+            namespace=LaunchConfiguration('namespace'),
+            parameters=[filter_file],
+        )
+
+        return [rplidar__s2_cmd, laser_filter_s2_cmd]
+
+    return []
+
+
+def start_camera(context):
+
+    if LaunchConfiguration('xtion').perform(context) == 'true':
+        xtion_cmd = GroupAction(
+            scoped=True,
+            actions=[
+                SetLaunchConfiguration('namespace', 'camera'),
+                IncludeLaunchDescription(
+                    PythonLaunchDescriptionSource([os.path.join(
+                        get_package_share_directory('openni2_camera'),
+                        'launch/'), 'camera_with_cloud.launch.py']),
+                )
+            ]
+        )
+
+        return [xtion_cmd]
+
+    if LaunchConfiguration('astra').perform(context) == 'true':
+        astra_cmd = IncludeLaunchDescription(
+            PythonLaunchDescriptionSource([os.path.join(
+                get_package_share_directory('astra_camera'),
+                'launch/'), 'astra_mini.launch.py']),
+        )
+
+        return [astra_cmd]
+
+    return []
+
+
+def generate_launch_description():
+
+    package_dir = get_package_share_directory('kobuki')
+    params_file = os.path.join(package_dir, 'config', 'kobuki_node_params.yaml')
+
+    with open(params_file, 'r') as f:
+        kobuki_params = yaml.safe_load(f)['kobuki_ros_node']['ros__parameters']
+
+    declare_xtion_cmd = DeclareLaunchArgument(
+        'xtion', default_value='false')
+
+    declare_astra_cmd = DeclareLaunchArgument(
+        'astra', default_value='false')
+
+    declare_lidar_cmd = DeclareLaunchArgument(
+        'lidar_a2', default_value='false')
+
+    declare_lidar_s2_cmd = DeclareLaunchArgument(
+        'lidar_s2', default_value='false')
+
+    declare_namespace_cmd = DeclareLaunchArgument(
+        'namespace', default_value='')
+
+    ld = LaunchDescription()
+
+    ld.add_action(declare_namespace_cmd)
+
+    kobuki_cmd = Node(
+        package='kobuki_node',
+        executable='kobuki_ros_node',
+        namespace=LaunchConfiguration('namespace'),
+        output='screen',
+        parameters=[kobuki_params],
+        remappings=[
+            ('/commands/velocity', '/cmd_vel')
+        ]
+    )
+
+    tf_footprint2base_cmd = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        namespace='',
+        output='screen',
+        remappings=[
+            ('/tf', 'tf'), ('/tf_static', 'tf_static')
+        ],
+        arguments=[
+            '0.0', '0.0', '0.001',
+            '0.0', '0.0', '0.0',
+            '1.0', 'base_link', 'base_footprint'
+        ],
+    )
+
+    ld.add_action(kobuki_cmd)
+    ld.add_action(tf_footprint2base_cmd)
+    ld.add_action(declare_xtion_cmd)
+    ld.add_action(declare_astra_cmd)
+    ld.add_action(declare_lidar_cmd)
+    ld.add_action(declare_lidar_s2_cmd)
+    ld.add_action(OpaqueFunction(function=start_description))
+    ld.add_action(OpaqueFunction(function=start_lidar))
+    ld.add_action(OpaqueFunction(function=start_camera))
+
+    return ld
