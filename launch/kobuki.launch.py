@@ -56,7 +56,7 @@ def start_description(context):
 
 def start_lidar(context):
 
-    package_dir = get_package_share_directory('kobuki')
+    package_dir = get_package_share_directory('foxrobotlab_ros2')
     filter_file = os.path.join(package_dir, 'config', 'footprint_filter.yaml')
 
     if LaunchConfiguration('lidar_a2').perform(context) == 'true':
@@ -145,7 +145,7 @@ def start_camera(context):
 
 def generate_launch_description():
 
-    package_dir = get_package_share_directory('kobuki')
+    package_dir = get_package_share_directory('foxrobotlab_ros2')
     params_file = os.path.join(package_dir, 'config', 'kobuki_node_params.yaml')
 
     with open(params_file, 'r') as f:
