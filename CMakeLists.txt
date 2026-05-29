@@ -23,7 +23,7 @@ ament_python_install_package(${PROJECT_NAME})
 
 # Installing python executables
 install(PROGRAMS
-  src/odomListener.py
+  src/turtle_control_reciever.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
