@@ -18,8 +18,8 @@ from cv_bridge import CvBridge
 
 class OdometrySubscriber(Node):
     def __init__(self):
-        super.__init__("odometry_subscriber")
-        self.subscriptions = self.create_subscription(
+        super().__init__("odometry_subscriber")
+        self.subscription = self.create_subscription(
             Odometry,
             "/odom",
             self.odom_callback,
