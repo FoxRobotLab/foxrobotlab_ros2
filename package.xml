@@ -9,6 +9,11 @@
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
+  <!-- Development Dependencies -->
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+
+  <!-- Hardware Driver Dependencies -->
   <exec_depend>kobuki_description</exec_depend>
   <exec_depend>kobuki_ros_interfaces</exec_depend>
   <exec_depend>kobuki_ros</exec_depend>
