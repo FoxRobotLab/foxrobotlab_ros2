@@ -83,7 +83,7 @@ class TurtleControlProcessor(Node):
         self.create_subscription(
             WheelDropEvent,
             "/foxrobotlab/raw/events/wheel_drop",
-            self.wheel_drop_callback,
+            self.wheeldrop_callback,
             QOS,
         )
         self.create_subscription(
