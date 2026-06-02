@@ -24,6 +24,7 @@ ament_python_install_package(${PROJECT_NAME})
 # Installing python executables
 install(PROGRAMS
   src/turtle_control_reciever.py
+  src/turtle_control_processor.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

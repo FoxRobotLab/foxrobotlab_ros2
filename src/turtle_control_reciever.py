@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# This file will be responsible for subscribing and publishing the necesarry topics for the rest of the system to use.
+# This file adapts hardware-driver topics into project-owned raw topics.
 # Author: Andre Mojica, May 2026
 
 # Import the node system from ROS
@@ -14,8 +14,6 @@ from sensor_msgs.msg import Image, Imu, BatteryState
 # Import message types from the downloaded ROS2 Kobuki library
 from kobuki_ros_interfaces.msg import SensorState, BumperEvent, WheelDropEvent, CliffEvent
 
-# Globals
-
 QOS = 10
 
 class ControlReceiver(Node):
@@ -27,7 +25,7 @@ class ControlReceiver(Node):
             Image, '/depth/image_raw', self.depth_callback, QOS
         )
         self.depth_publisher = self.create_publisher(
-            Image, '/raw/depth/image_raw', QOS
+            Image, '/foxrobotlab/raw/depth/image_raw', QOS
         )
 
         # Image Sensor Subscription
@@ -35,7 +33,7 @@ class ControlReceiver(Node):
             Image, '/color/image_raw', self.image_callback, QOS
         )
         self.image_publisher = self.create_publisher(
-            Image, '/raw/color/image_raw', QOS
+            Image, '/foxrobotlab/raw/color/image_raw', QOS
         )
 
         # ================== Odometry and IMU Data ===================
@@ -44,7 +42,7 @@ class ControlReceiver(Node):
             Odometry, '/odom', self.odom_callback, QOS
         )
         self.odom_publisher = self.create_publisher(
-            Odometry, '/raw/odom', QOS
+            Odometry, '/foxrobotlab/raw/odom', QOS
         )
 
         # IMU Sensor Subscription
@@ -52,7 +50,7 @@ class ControlReceiver(Node):
             Imu, '/sensors/imu_data', self.imu_callback, QOS
         )
         self.imu_publisher = self.create_publisher(
-            Imu, '/raw/sensors/imu_data', QOS
+            Imu, '/foxrobotlab/raw/sensors/imu_data', QOS
         )
 
         # ================ Kobuki Sensor Data ======================
@@ -61,7 +59,7 @@ class ControlReceiver(Node):
             SensorState, '/sensors/core', self.core_callback, QOS
         )
         self.kobuki_core_publisher = self.create_publisher(
-            SensorState, '/raw/sensors/core', QOS
+            SensorState, '/foxrobotlab/raw/sensors/core', QOS
         )
 
         # Battery Sensor
@@ -69,7 +67,7 @@ class ControlReceiver(Node):
             BatteryState, '/sensors/battery_state', self.battery_callback, QOS
         )
         self.kobuki_battery_publisher = self.create_publisher(
-            BatteryState, '/raw/sensors/battery_state', QOS
+            BatteryState, '/foxrobotlab/raw/sensors/battery_state', QOS
         )
 
         # Bumper Sensor
@@ -77,7 +75,7 @@ class ControlReceiver(Node):
             BumperEvent, '/events/bumper', self.bumper_callback, QOS
         )
         self.kobuki_bumper_publisher = self.create_publisher(
-            BumperEvent, '/raw/events/bumper', QOS
+            BumperEvent, '/foxrobotlab/raw/events/bumper', QOS
         )
 
         # Wheel Drop Sensor (Detects if the Kobuki is on the ground)
@@ -85,7 +83,7 @@ class ControlReceiver(Node):
             WheelDropEvent, '/events/wheel_drop', self.wheeldrop_callback, QOS
         )
         self.kobuki_wheeldrop_publisher = self.create_publisher(
-            WheelDropEvent, '/raw/events/wheel_drop', QOS
+            WheelDropEvent, '/foxrobotlab/raw/events/wheel_drop', QOS
         )
 
         # Cliff Sensor (Detects if a Kobuki wheel is missing a floor)
@@ -93,7 +91,7 @@ class ControlReceiver(Node):
             CliffEvent, '/events/cliff', self.cliff_callback, QOS
         )
         self.kobuki_cliff_publisher = self.create_publisher(
-            CliffEvent, '/raw/events/cliff', QOS
+            CliffEvent, '/foxrobotlab/raw/events/cliff', QOS
         )
 
     # ====================== Callbacks ===================
@@ -129,9 +127,9 @@ class ControlReceiver(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    reciever = ControlReceiver()
-    rclpy.spin(reciever)
-    reciever.destroy_node()
+    receiver = ControlReceiver()
+    rclpy.spin(receiver)
+    receiver.destroy_node()
     rclpy.shutdown()
 
 if __name__ == '__main__':
