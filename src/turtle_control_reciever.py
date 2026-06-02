@@ -18,7 +18,7 @@ from kobuki_ros_interfaces.msg import SensorState, BumperEvent, WheelDropEvent, 
 
 QOS = 10
 
-class ControlReciever(Node):
+class ControlReceiver(Node):
     def __init__(self):
         super().__init__("control_receiver")
         # ===================== Image Data =====================
@@ -34,7 +34,7 @@ class ControlReciever(Node):
         self.image_subscription = self.create_subscription(
             Image, '/color/image_raw', self.image_callback, QOS
         )
-        self.image_publisher = self.create_subscription(
+        self.image_publisher = self.create_publisher(
             Image, '/raw/color/image_raw', QOS
         )
 
@@ -96,50 +96,40 @@ class ControlReciever(Node):
             CliffEvent, '/raw/events/cliff', QOS
         )
 
-
     # ====================== Callbacks ===================
     #-----------------------------------------
     def depth_callback(self, msg: Image):
         self.depth_publisher.publish(msg)
-        self.get_logger().info(msg)
 
     def image_callback(self, msg: Image):
-        self.image_publisher(msg)
-        self.get_logger().info(msg)
+        self.image_publisher.publish(msg)
 
     #-----------------------------------------
     def odom_callback(self, msg: Odometry):
         self.odom_publisher.publish(msg)
-        self.get_logger().info(msg)
 
     def imu_callback(self, msg: Imu):
         self.imu_publisher.publish(msg)
-        self.get_logger().info(msg)
 
     #-----------------------------------------
     def core_callback(self, msg: SensorState):
         self.kobuki_core_publisher.publish(msg)
-        self.get_logger().info(msg)
 
     def battery_callback(self, msg: BatteryState):
         self.kobuki_battery_publisher.publish(msg)
-        self.get_logger().info(msg)
     
     def bumper_callback(self, msg: BumperEvent):
         self.kobuki_bumper_publisher.publish(msg)
-        self.get_logger().info(msg)
 
     def wheeldrop_callback(self, msg: WheelDropEvent):
         self.kobuki_wheeldrop_publisher.publish(msg)
-        self.get_logger().info(msg)
 
     def cliff_callback(self, msg: CliffEvent):
         self.kobuki_cliff_publisher.publish(msg)
-        self.get_logger().info(msg)
 
 def main(args=None):
     rclpy.init(args=args)
-    reciever = ControlReciever()
+    reciever = ControlReceiver()
     rclpy.spin(reciever)
     reciever.destroy_node()
     rclpy.shutdown()
