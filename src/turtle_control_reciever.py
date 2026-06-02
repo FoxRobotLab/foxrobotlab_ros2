@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# This file will be responsible for subscribing and publishing the necesarry topics for the rest of the system to use
+# This file will be responsible for subscribing and publishing the necesarry topics for the rest of the system to use.
 # Author: Andre Mojica, May 2026
 
 # Import the node system from ROS
@@ -9,74 +9,133 @@ from rclpy.node import Node
 
 # Import necessary message to create ROS topics
 from nav_msgs.msg import Odometry
-from sensor_msgs.msg import Image
-from geometry_msgs.msg import Twist
-from std_msgs.msg import Empty
-from kobuki_ros_interfaces.msg import SensorState
+from sensor_msgs.msg import Image, Imu, BatteryState
+
+# Import message types from the downloaded ROS2 Kobuki library
+from kobuki_ros_interfaces.msg import SensorState, BumperEvent, WheelDropEvent, CliffEvent
+
+# Globals
+
+QOS = 10
 
 class ControlReciever(Node):
     def __init__(self):
-        super().__init__("control_subscriber")
-
-        # Odometry Subscription ("/odom" topic)
-        self.odom_subscription = self.create_subscription(
-            Odometry,
-            "/odom",
-            self.odom_callback,
-            10
-        )
-        self.odom_subscription
-
-        # Movement Suscription ("/cmd_vel" topic)
-        self.control_subscription = self.create_subscription(
-            Twist,
-            '/cmd_vel',
-            self.mov_callback,
-            10
-        )
-        self.control_subscription
-
-        # Depth Sensor Subscription ("/camera/depth/image_raw" topic)
+        super().__init__("control_receiver")
+        # ===================== Image Data =====================
+        # Depth Sensor Subscription
         self.depth_subscription = self.create_subscription(
-            Image,
-            '/depth/image_raw',
-            self.depth_callback,
-            10
+            Image, '/depth/image_raw', self.depth_callback, QOS
         )
-        self.depth_subscription
+        self.depth_publisher = self.create_publisher(
+            Image, '/raw/depth/image_raw', QOS
+        )
 
-        # Image Sensor Subscription ("/camera/color/image_raw" topic)
+        # Image Sensor Subscription
         self.image_subscription = self.create_subscription(
-            Image,
-            '/color/image_raw',
-            self.image_callback,
-            10
+            Image, '/color/image_raw', self.image_callback, QOS
         )
-        self.image_subscription
+        self.image_publisher = self.create_subscription(
+            Image, '/raw/color/image_raw', QOS
+        )
 
-        # Core Sensor Subscription ("????" Topic)
-        self.core_subscription = self.create_subscription(
-            
+        # ================== Odometry and IMU Data ===================
+        # Odometry Subscription
+        self.odom_subscription = self.create_subscription(
+            Odometry, '/odom', self.odom_callback, QOS
         )
-    
+        self.odom_publisher = self.create_publisher(
+            Odometry, '/raw/odom', QOS
+        )
+
+        # IMU Sensor Subscription
+        self.imu_subscription = self.create_subscription(
+            Imu, '/sensors/imu_data', self.imu_callback, QOS
+        )
+        self.imu_publisher = self.create_publisher(
+            Imu, '/raw/sensors/imu_data', QOS
+        )
+
+        # ================ Kobuki Sensor Data ======================
+        # Core Sensors
+        self.kobuki_core_subscription = self.create_subscription(
+            SensorState, '/sensors/core', self.core_callback, QOS
+        )
+        self.kobuki_core_publisher = self.create_publisher(
+            SensorState, '/raw/sensors/core', QOS
+        )
+
+        # Battery Sensor
+        self.kobuki_battery_subscription = self.create_subscription(
+            BatteryState, '/sensors/battery_state', self.battery_callback, QOS
+        )
+        self.kobuki_battery_publisher = self.create_publisher(
+            BatteryState, '/raw/sensors/battery_state', QOS
+        )
+
+        # Bumper Sensor
+        self.kobuki_bumper_subscription = self.create_subscription(
+            BumperEvent, '/events/bumper', self.bumper_callback, QOS
+        )
+        self.kobuki_bumper_publisher = self.create_publisher(
+            BumperEvent, '/raw/events/bumper', QOS
+        )
+
+        # Wheel Drop Sensor (Detects if the Kobuki is on the ground)
+        self.kobuki_wheeldrop_subscription = self.create_subscription(
+            WheelDropEvent, '/events/wheel_drop', self.wheeldrop_callback, QOS
+        )
+        self.kobuki_wheeldrop_publisher = self.create_publisher(
+            WheelDropEvent, '/raw/events/wheel_drop', QOS
+        )
+
+        # Cliff Sensor (Detects if a Kobuki wheel is missing a floor)
+        self.kobuki_cliff_subscription = self.create_subscription(
+            CliffEvent, '/events/cliff', self.cliff_callback, QOS
+        )
+        self.kobuki_cliff_publisher = self.create_publisher(
+            CliffEvent, '/raw/events/cliff', QOS
+        )
+
+
+    # ====================== Callbacks ===================
+    #-----------------------------------------
+    def depth_callback(self, msg: Image):
+        self.depth_publisher.publish(msg)
+        self.get_logger().info(msg)
+
+    def image_callback(self, msg: Image):
+        self.image_publisher(msg)
+        self.get_logger().info(msg)
+
+    #-----------------------------------------
     def odom_callback(self, msg: Odometry):
-        # Getting position data
-        position = msg.pose.pose.position
-        self.get_logger().info(f'X: {position.x} | Y: {position.y}')
+        self.odom_publisher.publish(msg)
+        self.get_logger().info(msg)
 
-    def mov_callback(self, msg):
-        pass 
+    def imu_callback(self, msg: Imu):
+        self.imu_publisher.publish(msg)
+        self.get_logger().info(msg)
 
-    def depth_callback(self, msg):
-        pass
+    #-----------------------------------------
+    def core_callback(self, msg: SensorState):
+        self.kobuki_core_publisher.publish(msg)
+        self.get_logger().info(msg)
 
-    def image_callback(self, msg):
-        pass
+    def battery_callback(self, msg: BatteryState):
+        self.kobuki_battery_publisher.publish(msg)
+        self.get_logger().info(msg)
+    
+    def bumper_callback(self, msg: BumperEvent):
+        self.kobuki_bumper_publisher.publish(msg)
+        self.get_logger().info(msg)
 
-    def sensor_callback(self, msg):
-        pass 
+    def wheeldrop_callback(self, msg: WheelDropEvent):
+        self.kobuki_wheeldrop_publisher.publish(msg)
+        self.get_logger().info(msg)
 
-
+    def cliff_callback(self, msg: CliffEvent):
+        self.kobuki_cliff_publisher.publish(msg)
+        self.get_logger().info(msg)
 
 def main(args=None):
     rclpy.init(args=args)
@@ -87,7 +146,3 @@ def main(args=None):
 
 if __name__ == '__main__':
   main()
-
-
-
-
