@@ -108,14 +108,14 @@ class TurtleControlProcessor(Node):
 
     def imu_callback(self, msg: Imu):
         self.latest_imu = msg
-        linear_vel = msg.linear_acceleration
+        linear_accel = msg.linear_acceleration
         angular_vel = msg.angular_velocity
-        self.get_logger.info(
-            f'-----Linear Velocity ------'
-            f'X: {linear_vel.x}'
-            f'Y: {linear_vel.y}'
-            f'-----Angular Velocity-----'
-            f'Yaw Rate: {angular_vel.z}'
+        self.get_logger().info(
+            f'-----Linear Acceleration ------\n'
+            f'X: {linear_accel.x}\n'
+            f'Y: {linear_accel.y}\n'
+            f'-----Angular Velocity-----\n'
+            f'Yaw Rate: {angular_vel.z}\n'
             )
 
     # def core_callback(self, msg: SensorState):
