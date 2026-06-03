@@ -54,12 +54,12 @@ class TurtleControlProcessor(Node):
             self.odom_callback,
             QOS,
         )
-        # self.create_subscription(
-        #     Imu,
-        #     "/foxrobotlab/raw/sensors/imu_data",
-        #     self.imu_callback,
-        #     QOS,
-        # )
+        self.create_subscription(
+            Imu,
+            "/foxrobotlab/raw/sensors/imu_data",
+            self.imu_callback,
+            QOS,
+        )
 
         # ----------------------- Kobuki Sensors --------------------
         # self.create_subscription(
@@ -106,8 +106,17 @@ class TurtleControlProcessor(Node):
         orientation = msg.pose.pose.orientation
         self.get_logger().info(f'X: {position.x} | Y: {position.y} | Yaw: {self.euler_from_quaternion(orientation)}')
 
-    # def imu_callback(self, msg: Imu):
-    #     self.latest_imu = msg
+    def imu_callback(self, msg: Imu):
+        self.latest_imu = msg
+        linear_vel = msg.linear_acceleration
+        angular_vel = msg.angular_velocity
+        self.get_logger.info(
+            f'-----Linear Velocity ------'
+            f'X: {linear_vel.x}'
+            f'Y: {linear_vel.y}'
+            f'-----Angular Velocity-----'
+            f'Yaw Rate: {angular_vel.z}'
+            )
 
     # def core_callback(self, msg: SensorState):
     #     self.latest_core = msg
