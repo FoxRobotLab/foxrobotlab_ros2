@@ -15,6 +15,7 @@
   <exec_depend>rclcpp</exec_depend>
   <exec_depend>nav_msgs</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
 
   <!-- Hardware Driver Dependencies -->
   <exec_depend>kobuki_description</exec_depend>

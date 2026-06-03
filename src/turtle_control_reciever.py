@@ -18,7 +18,7 @@ QOS = 10
 
 class ControlReceiver(Node):
     def __init__(self):
-        super().__init__("control_receiver")
+        super().__init__('control_receiver')
         # ===================== Image Data =====================
         # Depth Sensor Subscription
         self.depth_subscription = self.create_subscription(
