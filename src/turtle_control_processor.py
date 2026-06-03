@@ -137,7 +137,7 @@ class TurtleControlProcessor(Node):
         siny_cosp = 2 * (w*z + x*y)
         cosy_cosp = 1 - 2 * (y**2 + z**2)
         yaw = math.atan2(siny_cosp, cosy_cosp)
-        return yaw
+        return math.degrees(yaw)
         
 
 def main(args=None):
