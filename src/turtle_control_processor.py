@@ -104,7 +104,7 @@ class TurtleControlProcessor(Node):
         self.latest_odom = msg
         position = msg.pose.pose.position
         orientation = msg.pose.pose.orientation
-        self.get_logger().info(f'X: {position.x} | Y: {position.y} | Yaw: {orientation}')
+        self.get_logger().info(f'X: {position.x} | Y: {position.y} | Yaw: {self.euler_from_quaternion(orientation)}')
 
     def imu_callback(self, msg: Imu):
         self.latest_imu = msg
@@ -127,9 +127,17 @@ class TurtleControlProcessor(Node):
         self.latest_cliff = msg
     
     # ======================== Odometry Methods ========================
-    # TODO: idk LOL
     def euler_from_quaternion(orientation):
-        pass
+        x = orientation.x
+        y = orientation.y
+        z = orientation.z 
+        w = orientation.w
+        
+        # hard coded yaw equation 
+        siny_cosp = 2 * (w*z + x*y)
+        cosy_cosp = 1 - 2 * (y**2 + z**2)
+        yaw = math.atan2(siny_cosp, cosy_cosp)
+        return yaw
         
 
 def main(args=None):
@@ -139,8 +147,5 @@ def main(args=None):
     processor.destroy_node()
     rclpy.shutdown()
 
-
 if __name__ == "__main__":
     main()
-
-
