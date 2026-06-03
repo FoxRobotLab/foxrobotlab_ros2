@@ -127,7 +127,7 @@ class TurtleControlProcessor(Node):
     #     self.latest_cliff = msg
     
     # ======================== Odometry Methods ========================
-    def euler_from_quaternion(orientation):
+    def euler_from_quaternion(self, orientation):
         x = orientation.x
         y = orientation.y
         z = orientation.z 
