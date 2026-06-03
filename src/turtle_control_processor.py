@@ -34,18 +34,18 @@ class TurtleControlProcessor(Node):
         
         # ======================= Project Subscribers =================
         # ------------------- Image and Depth --------------------
-        self.create_subscription(
-            Image,
-            "/foxrobotlab/raw/color/image_raw",
-            self.color_image_callback,
-            QOS,
-        )
-        self.create_subscription(
-            Image,
-            "/foxrobotlab/raw/depth/image_raw",
-            self.depth_image_callback,
-            QOS,
-        )
+        # self.create_subscription(
+        #     Image,
+        #     "/foxrobotlab/raw/color/image_raw",
+        #     self.color_image_callback,
+        #     QOS,
+        # )
+        # self.create_subscription(
+        #     Image,
+        #     "/foxrobotlab/raw/depth/image_raw",
+        #     self.depth_image_callback,
+        #     QOS,
+        # )
 
         # ------------------- Odometry and IMU -------------------
         self.create_subscription(
@@ -54,51 +54,51 @@ class TurtleControlProcessor(Node):
             self.odom_callback,
             QOS,
         )
-        self.create_subscription(
-            Imu,
-            "/foxrobotlab/raw/sensors/imu_data",
-            self.imu_callback,
-            QOS,
-        )
+        # self.create_subscription(
+        #     Imu,
+        #     "/foxrobotlab/raw/sensors/imu_data",
+        #     self.imu_callback,
+        #     QOS,
+        # )
 
         # ----------------------- Kobuki Sensors --------------------
-        self.create_subscription(
-            SensorState,
-            "/foxrobotlab/raw/sensors/core",
-            self.core_callback,
-            QOS,
-        )
-        self.create_subscription(
-            BatteryState,
-            "/foxrobotlab/raw/sensors/battery_state",
-            self.battery_callback,
-            QOS,
-        )
-        self.create_subscription(
-            BumperEvent,
-            "/foxrobotlab/raw/events/bumper",
-            self.bumper_callback,
-            QOS,
-        )
-        self.create_subscription(
-            WheelDropEvent,
-            "/foxrobotlab/raw/events/wheel_drop",
-            self.wheeldrop_callback,
-            QOS,
-        )
-        self.create_subscription(
-            CliffEvent,
-            "/foxrobotlab/raw/events/cliff",
-            self.cliff_callback,
-            QOS,
-        )
+        # self.create_subscription(
+        #     SensorState,
+        #     "/foxrobotlab/raw/sensors/core",
+        #     self.core_callback,
+        #     QOS,
+        # )
+        # self.create_subscription(
+        #     BatteryState,
+        #     "/foxrobotlab/raw/sensors/battery_state",
+        #     self.battery_callback,
+        #     QOS,
+        # )
+        # self.create_subscription(
+        #     BumperEvent,
+        #     "/foxrobotlab/raw/events/bumper",
+        #     self.bumper_callback,
+        #     QOS,
+        # )
+        # self.create_subscription(
+        #     WheelDropEvent,
+        #     "/foxrobotlab/raw/events/wheel_drop",
+        #     self.wheeldrop_callback,
+        #     QOS,
+        # )
+        # self.create_subscription(
+        #     CliffEvent,
+        #     "/foxrobotlab/raw/events/cliff",
+        #     self.cliff_callback,
+        #     QOS,
+        # )
 
     # =================== Callbacks =======================
-    def color_image_callback(self, msg: Image):
-        self.latest_color_image = msg
+    # def color_image_callback(self, msg: Image):
+    #     self.latest_color_image = msg
 
-    def depth_image_callback(self, msg: Image):
-        self.latest_depth_image = msg
+    # def depth_image_callback(self, msg: Image):
+    #     self.latest_depth_image = msg
 
     def odom_callback(self, msg: Odometry):
         self.latest_odom = msg
@@ -106,25 +106,25 @@ class TurtleControlProcessor(Node):
         orientation = msg.pose.pose.orientation
         self.get_logger().info(f'X: {position.x} | Y: {position.y} | Yaw: {self.euler_from_quaternion(orientation)}')
 
-    def imu_callback(self, msg: Imu):
-        self.latest_imu = msg
+    # def imu_callback(self, msg: Imu):
+    #     self.latest_imu = msg
 
-    def core_callback(self, msg: SensorState):
-        self.latest_core = msg
-        battery = msg.battery
-        self.get_logger().info(battery)
+    # def core_callback(self, msg: SensorState):
+    #     self.latest_core = msg
+    #     battery = msg.battery
+    #     self.get_logger().info(battery)
 
-    def battery_callback(self, msg: BatteryState):
-        self.latest_battery = msg
+    # def battery_callback(self, msg: BatteryState):
+    #     self.latest_battery = msg
 
-    def bumper_callback(self, msg: BumperEvent):
-        self.latest_bumper = msg
+    # def bumper_callback(self, msg: BumperEvent):
+    #     self.latest_bumper = msg
 
-    def wheeldrop_callback(self, msg: WheelDropEvent):
-        self.latest_wheel_drop = msg
+    # def wheeldrop_callback(self, msg: WheelDropEvent):
+    #     self.latest_wheel_drop = msg
 
-    def cliff_callback(self, msg: CliffEvent):
-        self.latest_cliff = msg
+    # def cliff_callback(self, msg: CliffEvent):
+    #     self.latest_cliff = msg
     
     # ======================== Odometry Methods ========================
     def euler_from_quaternion(orientation):
@@ -138,7 +138,6 @@ class TurtleControlProcessor(Node):
         cosy_cosp = 1 - 2 * (y**2 + z**2)
         yaw = math.atan2(siny_cosp, cosy_cosp)
         return math.degrees(yaw)
-        
 
 def main(args=None):
     rclpy.init(args=args)
