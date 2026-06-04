@@ -137,6 +137,8 @@ class TurtleControlProcessor(Node):
 
     def core_callback(self, msg: SensorState):
         self.core_msg = msg
+        if msg.wheel_drop > 0:
+            self.wheel_drop_flag = True
 
     def battery_callback(self, msg: BatteryState):
         self.battery_msg = msg
@@ -192,6 +194,23 @@ class TurtleControlProcessor(Node):
         self.prev_yaw = cur_yaw
 
         return rx, ry, dyaw
+    
+    def getBumperStatus(self): 
+        if self.core_msg is None: return 0
+        else: return self.core_msg.bumper
+    
+    def getWheelDropStatus(self):
+        if self.core_msg is None: return 0
+        else: return self.core_msg.wheel_drop
+
+    def getCliffStatus(self):
+        if self.core_msg is None: return 0
+        else: return self.core_msg.cliff
+
+    def hasWheelDrop(self):
+        drop_event = self.wheel_drop_flag
+        self.wheel_drop_flag = False
+        return drop_event
         
     # ======================== Status Formatting ========================
     # -------------- String Building ----------------
