@@ -23,7 +23,7 @@ class TurtleControlProcessor(Node):
     def __init__(self):
         super().__init__('control_processor')
 
-        # Internal State Variables
+        # Variables for ROS topics
         self.imageColor_msg = None
         self.imageDepth_msg = None
         self.odom_msg = None
@@ -125,7 +125,12 @@ class TurtleControlProcessor(Node):
         self.imageDepth_msg = msg
 
     def odom_callback(self, msg: Odometry):
-        self.odom_msg = msg
+        # this is to make sure that the previous odom is saved as the first instance of the odometry upon initialization
+        if self.odom_msg is None:
+            self.odom_msg = msg
+            self.prev_x, self.prev_y, self.prev_yaw = self.getOdomData()
+        else:
+            self.odom_msg = msg
 
     def imu_callback(self, msg: Imu):
         self.imu_msg = msg
@@ -146,7 +151,7 @@ class TurtleControlProcessor(Node):
         self.cliff_msg = msg
 
     # ========================= Class Methods ====================
-
+    # ---------------------- For Localizer ------------------
     def getOdomData(self):
         raw_x, raw_y, raw_yaw = self.get_raw_odom()
         x = raw_x + self.offset_x
@@ -155,7 +160,7 @@ class TurtleControlProcessor(Node):
 
         return x, y, yaw
     
-    def updateOdomLocation(self, x, y, yaw):
+    def updateOdomLocation(self, x=0, y=0, yaw=0.0):
         raw_x, raw_y, raw_yaw = self.get_raw_odom()
 
         old_x = self.prev_x - self.offset_x
@@ -171,6 +176,22 @@ class TurtleControlProcessor(Node):
         self.prev_yaw = self.normalize_degrees(old_yaw + self.offset_yaw)
 
         return self.offset_x, self.offset_y, self.offset_yaw
+    
+    def getTravelDist(self):
+        cur_x, cur_y, cur_yaw = self.getOdomData()
+        dx = cur_x - self.prev_x
+        dy = cur_y - self.prev_y
+        dyaw = self.normalize_degrees(cur_yaw - self.prev_yaw)
+        rad_yaw = math.radians(self.prev_yaw)
+
+        rx = dx * math.cos(rad_yaw) + dy * math.sin(rad_yaw)
+        ry = -dx * math.sin(rad_yaw) + dy * math.cos(rad_yaw)
+
+        self.prev_x = cur_x
+        self.prev_y = cur_y
+        self.prev_yaw = cur_yaw
+
+        return rx, ry, dyaw
         
     # ======================== Status Formatting ========================
     # -------------- String Building ----------------
