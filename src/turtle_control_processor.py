@@ -35,10 +35,10 @@ class TurtleControlProcessor(Node):
         self.cliff_msg = None  
 
         #-------Imported Variables from turtleControl.py-------
-        # Offset Variables
-        self.offset_x = 0.0
-        self.offset_y = 0.0
-        self.offset_yaw = 0.0
+        # Offset Variables, temporary summer 2018 offsets
+        self.offset_x = 6.1
+        self.offset_y = 41.1
+        self.offset_yaw = 270.0
 
         # Travel Distance Variables
         self.prev_x = 0.0
@@ -146,21 +146,31 @@ class TurtleControlProcessor(Node):
         self.cliff_msg = msg
 
     # ========================= Class Methods ====================
-    def getOdomData(self):
-        odom = self.odom_msg
-        if odom is None:
-            return 0.0, 0.0, 0.0
-    
-        position = odom.pose.pose.position
-        orientation = odom.pose.pose.orientation
-        yaw = self.euler_from_quaternion(orientation)
 
-        x = position.x + self.offset_x
-        y = position.y + self.offset_y
-        yaw = math.degrees(yaw + self.offset_yaw)
+    def getOdomData(self):
+        raw_x, raw_y, raw_yaw = self.get_raw_odom()
+        x = raw_x + self.offset_x
+        y = raw_y + self.offset_y
+        yaw = self.normalize_degrees(raw_yaw + self.offset_yaw)
 
         return x, y, yaw
     
+    def updateOdomLocation(self, x, y, yaw):
+        raw_x, raw_y, raw_yaw = self.get_raw_odom()
+
+        old_x = self.prev_x - self.offset_x
+        old_y = self.prev_y - self.offset_y
+        old_yaw = self.prev_yaw - self.offset_yaw
+
+        self.offset_x = x - raw_x
+        self.offset_y = y - raw_y
+        self.offset_yaw = self.normalize_degrees(yaw - raw_yaw)
+
+        self.prev_x = old_x + self.offset_x
+        self.prev_y = old_y + self.offset_y
+        self.prev_yaw = self.normalize_degrees(old_yaw + self.offset_yaw)
+
+        return self.offset_x, self.offset_y, self.offset_yaw
         
     # ======================== Status Formatting ========================
     # -------------- String Building ----------------
@@ -190,19 +200,18 @@ class TurtleControlProcessor(Node):
 
     # -------------------- String Formatting -------------------
     def format_odometry(self):
-        if self.latest_odom is None:
+        odom = self.odom_msg
+        if odom is None:
             return 'ODOMETRY\nwaiting...'
 
-        position = self.latest_odom.pose.pose.position
-        orientation = self.latest_odom.pose.pose.orientation
-        linear_vel = self.latest_odom.twist.twist.linear
-        angular_vel = self.latest_odom.twist.twist.angular
-        yaw = self.euler_from_quaternion(orientation)
+        x, y, yaw = self.getOdomData()
+        linear_vel = odom.twist.twist.linear
+        angular_vel = odom.twist.twist.angular
 
         return (
             'ODOMETRY\n'
-            f'x: {position.x:.3f} m\n'
-            f'y: {position.y:.3f} m\n'
+            f'x: {x:.3f} m\n'
+            f'y: {y:.3f} m\n'
             f'yaw: {yaw:.2f} deg\n'
             f'linear x: {linear_vel.x:.3f} m/s\n'
             f'linear y: {linear_vel.y:3f} m/s\n'
@@ -210,11 +219,11 @@ class TurtleControlProcessor(Node):
         )
 
     def format_imu(self):
-        if self.latest_imu is None:
+        if self.imu_msg is None:
             return 'IMU\nwaiting...'
 
-        linear_accel = self.latest_imu.linear_acceleration
-        angular_vel = self.latest_imu.angular_velocity
+        linear_accel = self.imu_msg.linear_acceleration
+        angular_vel = self.imu_msg.angular_velocity
 
         return (
             'IMU\n'
@@ -224,29 +233,29 @@ class TurtleControlProcessor(Node):
         )
 
     def format_battery(self):
-        if self.latest_battery is None:
+        if self.battery_msg is None:
             return 'BATTERY\nwaiting...'
 
         percentage = 'unknown'
-        if self.latest_battery.percentage >= 0.0:
-            percentage = f'{self.latest_battery.percentage * 100.0:.1f}%'
+        if self.battery_msg.percentage >= 0.0:
+            percentage = f'{self.battery_msg.percentage * 100.0:.1f}%'
 
         return (
             'BATTERY\n'
-            f'voltage: {self.latest_battery.voltage:.2f} V\n'
+            f'voltage: {self.battery_msg.voltage:.2f} V\n'
             f'percentage: {percentage}'
         )
 
     def format_core(self):
-        if self.latest_core is None:
+        if self.core_msg is None:
             return 'KOBUKI CORE\nwaiting...'
 
         return (
             'KOBUKI CORE\n'
-            f'raw battery: {self.latest_core.battery}\n'
-            f'bumper bitmask: {self.latest_core.bumper}\n'
-            f'wheel drop bitmask: {self.latest_core.wheel_drop}\n'
-            f'cliff bitmask: {self.latest_core.cliff}'
+            f'raw battery: {self.core_msg.battery}\n'
+            f'bumper bitmask: {self.core_msg.bumper}\n'
+            f'wheel drop bitmask: {self.core_msg.wheel_drop}\n'
+            f'cliff bitmask: {self.core_msg.cliff}'
         )
 
     def format_events(self):
@@ -258,8 +267,8 @@ class TurtleControlProcessor(Node):
         )
 
     def format_images(self):
-        color = self.format_image_info(self.latest_color_image)
-        depth = self.format_image_info(self.latest_depth_image)
+        color = self.format_image_info(self.imageColor_msg)
+        depth = self.format_image_info(self.imageDepth_msg)
         return (
             'IMAGE TOPICS\n'
             f'color: {color}\n'
@@ -272,31 +281,66 @@ class TurtleControlProcessor(Node):
         return f'{image.width}x{image.height} {image.encoding}'
 
     def format_bumper_event(self):
-        if self.latest_bumper is None:
+        if self.bumper_msg is None:
             return 'waiting...'
         return (
-            f'{self.bumper_name(self.latest_bumper.bumper)} '
-            f'{self.bumper_state(self.latest_bumper.state)}'
+            f'{self.bumper_name(self.bumper_msg.bumper)} '
+            f'{self.bumper_state(self.bumper_msg.state)}'
         )
 
     def format_wheel_drop_event(self):
-        if self.latest_wheel_drop is None:
+        if self.wheelDrop_msg is None:
             return 'waiting...'
         return (
-            f'{self.wheel_name(self.latest_wheel_drop.wheel)} '
-            f'{self.wheel_state(self.latest_wheel_drop.state)}'
+            f'{self.wheel_name(self.wheelDrop_msg.wheel)} '
+            f'{self.wheel_state(self.wheelDrop_msg.state)}'
         )
 
     def format_cliff_event(self):
-        if self.latest_cliff is None:
+        if self.cliff_msg is None:
             return 'waiting...'
         return (
-            f'{self.cliff_sensor_name(self.latest_cliff.sensor)} '
-            f'{self.cliff_state(self.latest_cliff.state)} '
-            f'(bottom: {self.latest_cliff.bottom})'
+            f'{self.cliff_sensor_name(self.cliff_msg.sensor)} '
+            f'{self.cliff_state(self.cliff_msg.state)} '
+            f'(bottom: {self.cliff_msg.bottom})'
         )
 
     # ======================== Helper Methods ========================
+    # -------------------------- Class Helpers --------------------------
+    def get_raw_odom(self):
+        odom = self.odom_msg
+        if odom is None:
+            return 0.0, 0.0, 0.0
+
+        odom_position = odom.pose.pose.position
+        odom_orientation = odom.pose.pose.orientation
+
+        x = odom_position.x
+        y = odom_position.y
+        yaw = self.euler_from_quaternion(odom_orientation)
+
+        return x, y, yaw
+    
+    def euler_from_quaternion(self, orientation):
+        x = orientation.x
+        y = orientation.y
+        z = orientation.z 
+        w = orientation.w
+        
+        # hard coded yaw equation 
+        siny_cosp = 2 * (w*z + x*y)
+        cosy_cosp = 1 - 2 * (y**2 + z**2)
+        yaw = math.atan2(siny_cosp, cosy_cosp)
+        return math.degrees(yaw)
+    
+    def normalize_degrees(self, angle): # allows us to have consistent angles
+        while angle > 180:
+            angle -= 360
+        while angle < -180:
+            angle += 360
+        return angle
+    
+    # --------------------------- String Format Helpers ----------------------
     def bumper_name(self, value):
         names = {
             BumperEvent.LEFT: 'LEFT',
@@ -341,18 +385,6 @@ class TurtleControlProcessor(Node):
         }
         return states.get(value, f'UNKNOWN({value})')
     
-    def euler_from_quaternion(self, orientation):
-        x = orientation.x
-        y = orientation.y
-        z = orientation.z 
-        w = orientation.w
-        
-        # hard coded yaw equation 
-        siny_cosp = 2 * (w*z + x*y)
-        cosy_cosp = 1 - 2 * (y**2 + z**2)
-        yaw = math.atan2(siny_cosp, cosy_cosp)
-        return math.degrees(yaw)
-
 def main(args=None):
     rclpy.init(args=args)
     processor = TurtleControlProcessor()
