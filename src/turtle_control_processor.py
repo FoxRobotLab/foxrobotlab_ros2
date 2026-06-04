@@ -23,17 +23,32 @@ class TurtleControlProcessor(Node):
     def __init__(self):
         super().__init__('control_processor')
 
-        # Initialize Class Variables
-        self.latest_color_image = None
-        self.latest_depth_image = None
-        self.latest_odom = None
-        self.latest_imu = None
-        self.latest_core = None
-        self.latest_battery = None
-        self.latest_bumper = None
-        self.latest_wheel_drop = None
-        self.latest_cliff = None  
+        # Internal State Variables
+        self.imageColor_msg = None
+        self.imageDepth_msg = None
+        self.odom_msg = None
+        self.imu_msg = None
+        self.core_msg = None
+        self.battery_msg = None
+        self.bumper_msg = None
+        self.wheelDrop_msg = None
+        self.cliff_msg = None  
 
+        #-------Imported Variables from turtleControl.py-------
+        # Offset Variables
+        self.offset_x = 0.0
+        self.offset_y = 0.0
+        self.offset_yaw = 0.0
+
+        # Travel Distance Variables
+        self.prev_x = 0.0
+        self.prev_y = 0.0
+        self.prev_yaw = 0.0
+
+        self.wheel_drop_flag = False
+        self.image_served_count = 0
+
+        # ======================== Internal State Publisher ================
         self.status_publisher = self.create_publisher(
             String,
             '/foxrobotlab/processed/status_text',
@@ -104,32 +119,49 @@ class TurtleControlProcessor(Node):
 
     # =================== Callbacks =======================
     def color_image_callback(self, msg: Image):
-        self.latest_color_image = msg
+        self.imageColor_msg = msg
 
     def depth_image_callback(self, msg: Image):
-        self.latest_depth_image = msg
+        self.imageDepth_msg = msg
 
     def odom_callback(self, msg: Odometry):
-        self.latest_odom = msg
+        self.odom_msg = msg
 
     def imu_callback(self, msg: Imu):
-        self.latest_imu = msg
+        self.imu_msg = msg
 
     def core_callback(self, msg: SensorState):
-        self.latest_core = msg
+        self.core_msg = msg
 
     def battery_callback(self, msg: BatteryState):
-        self.latest_battery = msg
+        self.battery_msg = msg
 
     def bumper_callback(self, msg: BumperEvent):
-        self.latest_bumper = msg
+        self.bumper_msg = msg
 
     def wheeldrop_callback(self, msg: WheelDropEvent):
-        self.latest_wheel_drop = msg
+        self.wheelDrop_msg = msg
 
     def cliff_callback(self, msg: CliffEvent):
-        self.latest_cliff = msg
+        self.cliff_msg = msg
 
+    # ========================= Class Methods ====================
+    def getOdomData(self):
+        odom = self.odom_msg
+        if odom is None:
+            return 0.0, 0.0, 0.0
+    
+        position = odom.pose.pose.position
+        orientation = odom.pose.pose.orientation
+        yaw = self.euler_from_quaternion(orientation)
+
+        x = position.x + self.offset_x
+        y = position.y + self.offset_y
+        yaw = math.degrees(yaw + self.offset_yaw)
+
+        return x, y, yaw
+    
+        
     # ======================== Status Formatting ========================
     # -------------- String Building ----------------
     def publish_status(self):

@@ -21,10 +21,8 @@ will be off.
 import math
 
 import cv2
-import rospy
-# from espeak import espeak
 import numpy as np
-import turtleControl
+# from espeak import espeak
 # import MovementHandler
 import PotentialFieldThread
 import FieldBehaviors
@@ -38,6 +36,9 @@ import time
 import LocalizerStringConstants as loc_const
 import sys
 
+# These imports will be changed to incorporate turtle_control_processor
+import rospy
+import turtleControl
 from std_msgs.msg import String
 
 
@@ -49,8 +50,6 @@ class MatchPlanner(object):
         # print("MatchPlanner: Robot ::: Pause Movement")
         self.robot.pauseMovement()
         self.fHeight, self.fWidth, self.fDepth = self.robot.getImage()[0].shape
-
-
 
         self.brain = None
         self.goalSeeker = None
@@ -99,7 +98,6 @@ class MatchPlanner(object):
             self.robot.unpauseMovement()
         else:
             ready = False
-
 
         while ready and not rospy.is_shutdown():
             self.gui.update()
