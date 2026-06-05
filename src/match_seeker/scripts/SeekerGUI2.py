@@ -1,6 +1,4 @@
 import tkinter as tk
-from matchPlanner import MatchPlanner
-from turtleControl import TurtleBot
 
 class SeekerGUI2():
 

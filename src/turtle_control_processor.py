@@ -6,6 +6,8 @@
 
 import math 
 import numpy as np
+import threading
+import time
 
 import rclpy
 from rclpy.node import Node
@@ -18,15 +20,17 @@ from kobuki_ros_interfaces.msg import SensorState, BumperEvent, WheelDropEvent, 
 
 from cv_bridge import CvBridge
 
-# NOTE: This is a placeholder to make the current matchPlanner work
-import threading
-
 QOS = 10
 STATUS_PERIOD_SECONDS = 0.5
 
 
 class TurtleControlProcessor(Node):
     def __init__(self, spin_in_background=False):
+        self.owns_rclpy = False
+        if not rclpy.ok():
+            rclpy.init()
+            self.owns_rclpy = True
+
         super().__init__('control_processor')
 
         # Variables for ROS topics
@@ -130,8 +134,11 @@ class TurtleControlProcessor(Node):
         )
         self.movement_paused = False
 
+        self.spin_in_background = spin_in_background
+        self.spin_running = False
         self.spin_thread = None
         if spin_in_background:
+            self.spin_running = True
             self.spin_thread = threading.Thread(target=self._spin, daemon=True)
             self.spin_thread.start()
 
@@ -274,6 +281,42 @@ class TurtleControlProcessor(Node):
 
     def stop(self):
         self.move_publisher.publish(Twist())
+
+    def turnLeft(self, amount):
+        self.move(0.0, amount)
+
+    def turnRight(self, amount):
+        self.move(0.0, -amount)
+
+    def turnByAngle(self, angle):
+        curr_x, curr_y, curr_yaw = self.getOdomData()
+        goal_yaw = self.normalize_degrees(curr_yaw + angle)
+
+        while rclpy.ok():
+            _, _, curr_yaw = self.getOdomData()
+            yaw_error = self.normalize_degrees(goal_yaw - curr_yaw)
+            if abs(yaw_error) <= 5:
+                break
+
+            if yaw_error > 0:
+                self.turnLeft(0.5)
+            else:
+                self.turnRight(0.5)
+            time.sleep(0.05)
+
+        self.stop()
+
+    def is_shutdown(self):
+        return not rclpy.ok()
+
+    def shutdown(self):
+        self.stop()
+        self.spin_running = False
+        if self.spin_thread is not None:
+            self.spin_thread.join(timeout=1.0)
+        self.destroy_node()
+        if self.owns_rclpy and rclpy.ok():
+            rclpy.shutdown()
         
     # ======================== Status Formatting ========================
     # -------------- String Building ----------------
@@ -449,11 +492,14 @@ class TurtleControlProcessor(Node):
             if msg is not None:
                 return msg
             self.get_logger().info(f'Waiting for {label}...')
-            rclpy.spin_once(self, timeout_sec=0.2)
+            if self.spin_in_background:
+                time.sleep(0.2)
+            else:
+                rclpy.spin_once(self, timeout_sec=0.2)
         return None
 
     def _spin(self):
-        while rclpy.ok():
+        while self.spin_running and rclpy.ok():
             rclpy.spin_once(self, timeout_sec=0.1)
     
     # --------------------------- String Format Helpers ----------------------

@@ -35,18 +35,17 @@ import SeekerGUI2
 import time
 import LocalizerStringConstants as loc_const
 import sys
+import os
 
-# These imports will be changed to incorporate turtle_control_processor
-import rospy
-import turtleControl
-from std_msgs.msg import String
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
+from turtle_control_processor import TurtleControlProcessor
 
 
 class MatchPlanner(object):
 
     def __init__(self):
 
-        self.robot = turtleControl.TurtleBot()
+        self.robot = TurtleControlProcessor(spin_in_background=True)
         # print("MatchPlanner: Robot ::: Pause Movement")
         self.robot.pauseMovement()
         self.fHeight, self.fWidth, self.fDepth = self.robot.getImage()[0].shape
@@ -80,8 +79,6 @@ class MatchPlanner(object):
         self.gui = SeekerGUI2.SeekerGUI2(self, self.robot)
         self.gui.update()
 
-        self.pub = rospy.Publisher('chatter', String, queue_size=10)
-
     def run(self):
         """Runs the program for the duration of 'runtime'"""
 
@@ -99,7 +96,7 @@ class MatchPlanner(object):
         else:
             ready = False
 
-        while ready and not rospy.is_shutdown():
+        while ready and not self.robot.is_shutdown():
             self.gui.update()
             image = self.robot.getImage()[0]
             cv2.imshow("Turtlebot View", image)
@@ -139,7 +136,7 @@ class MatchPlanner(object):
                     # self.speak("Navigating...")
                     self.gui.navigatingMode()
                     # self.robot.turnByAngle(35)  # turn back 35 degrees bc the behavior is faster than the matching
-                    self.brailoc_constn.unpause()
+                    self.brain.unpause()
                     self.checkCoordinates(nodeAndPose)  # react to the location data of the match
                     self.whichBrain = "nav"
             elif status == loc_const.look:  # enter LookAround behavior
@@ -430,13 +427,10 @@ class MatchPlanner(object):
         self.gui.stop()
         self.brain.stop()  # was stopAll
         cv2.destroyAllWindows()
-        rospy.signal_shutdown("Button pressed")
+        self.robot.shutdown()
         sys.exit(0)
 
 
 if __name__ == "__main__":
-    rospy.init_node('Planner')
     plan = MatchPlanner()
     plan.run()
-    # rospy.on_shutdown(plan.exit)
-    rospy.spin()
