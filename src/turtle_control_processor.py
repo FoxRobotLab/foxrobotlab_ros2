@@ -237,6 +237,11 @@ class TurtleControlProcessor(Node):
         self.wheel_drop_flag = False
         return drop_event
     
+    def getBatteryLevel(self):
+        if self.battery_msg is None: return 0
+        else: return self.core_msg.battery
+
+
     # ------------------------- Images and Depth ---------------------
     def getImage(self, x=0, y=0, width = 640, height = 480):
         raw_image = self.wait_for_message(lambda: self.imageColor_msg, 'color image')
