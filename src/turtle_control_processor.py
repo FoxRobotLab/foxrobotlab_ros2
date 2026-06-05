@@ -5,6 +5,7 @@
 # Author Andre Mojica, June 2026
 
 import math 
+import numpy as np
 
 import rclpy
 from rclpy.node import Node
@@ -14,6 +15,7 @@ from sensor_msgs.msg import BatteryState, Image, Imu
 from std_msgs.msg import String
 from kobuki_ros_interfaces.msg import SensorState, BumperEvent, WheelDropEvent, CliffEvent
 
+from cv_bridge import CvBridge
 
 QOS = 10
 STATUS_PERIOD_SECONDS = 0.5
@@ -211,6 +213,29 @@ class TurtleControlProcessor(Node):
         drop_event = self.wheel_drop_flag
         self.wheel_drop_flag = False
         return drop_event
+    
+    # ------------------------- Images and Depth ---------------------
+    def getImage(self, x=0, y=0, width = 640, height = 480):
+        raw_image = self.wait_for_message(lambda: self.imageColor_msg, 'color image')
+        if raw_image is None:
+            return None, 0
+
+        cv_image = CvBridge().imgmsg_to_cv2(raw_image, 'passthrough')
+        cropped_image = cv_image[y:y + height, x:x + width]
+
+        self.image_served_count += 1
+        return cropped_image, self.image_served_count
+
+    def getDepth(self, x=0, y=0, width = 640, height = 480):
+        ros_image = self.wait_for_message(lambda: self.imageDepth_msg, 'depth image')        
+        if ros_image is None:
+            return np.zeros((height, width))
+        cv_image = CvBridge().imgmsg_to_cv2(ros_image, 'passthrough')
+        numpy_array = np.asarray(cv_image)
+        return numpy_array[y:y + height, x:x + width]
+    
+    # NOTE: Tha lambda is for reading NEW values of the ROS message, when wait_for_message is called
+    # it re-checks imageColor_msg topic not whatever the current value of self.imageColor_msg.
         
     # ======================== Status Formatting ========================
     # -------------- String Building ----------------
@@ -379,6 +404,15 @@ class TurtleControlProcessor(Node):
         while angle < -180:
             angle += 360
         return angle
+
+    def wait_for_message(self, getter, label):
+        while rclpy.ok():
+            msg = getter()
+            if msg is not None:
+                return msg
+            self.get_logger().info(f'Waiting for {label}...')
+            rclpy.spin_once(self, timeout_sec=0.2)
+        return None
     
     # --------------------------- String Format Helpers ----------------------
     def bumper_name(self, value):
