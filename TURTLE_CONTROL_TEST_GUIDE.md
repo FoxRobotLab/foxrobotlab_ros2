@@ -44,9 +44,34 @@ The required checks are:
 - `/foxrobotlab/processed/status_text`
 
 If these pass, the receiver and processor are connected well enough for the
-next `matchPlanner.py` test.
+next processor getter test.
 
-## 4. Optional Topic Checks
+## 4. Run The Getter Test
+
+The getter test creates a `TurtleControlProcessor` object the same way
+`matchPlanner.py` does, then calls the compatibility methods used by the old
+planner stack:
+
+```bash
+source install/setup.bash
+ros2 run foxrobotlab_ros2 turtle_control_getter_test.py
+```
+
+This checks:
+
+- `getOdomData()`
+- `getTravelDist()`
+- `getBumperStatus()`
+- `getWheelDropStatus()`
+- `getCliffStatus()`
+- `hasWheelDrop()`
+- `getImage()`
+- `getDepth()`
+
+If this passes, the processor API is ready for the first `matchPlanner.py`
+runtime test.
+
+## 5. Optional Topic Checks
 
 If the smoke test is missing a topic, check the topic directly:
 
@@ -63,9 +88,9 @@ ros2 topic hz /foxrobotlab/raw/color/image_raw
 ros2 topic hz /foxrobotlab/raw/depth/image_raw
 ```
 
-## 5. Run matchPlanner
+## 6. Run matchPlanner
 
-After the smoke test passes, run:
+After the smoke test and getter test pass, run:
 
 ```bash
 python3 src/foxrobotlab_ros2/src/match_seeker/scripts/matchPlanner.py

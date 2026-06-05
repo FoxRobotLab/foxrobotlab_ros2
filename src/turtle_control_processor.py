@@ -25,13 +25,13 @@ STATUS_PERIOD_SECONDS = 0.5
 
 
 class TurtleControlProcessor(Node):
-    def __init__(self, spin_in_background=False):
+    def __init__(self, spin_in_background=False, node_name='control_processor'):
         self.owns_rclpy = False
         if not rclpy.ok():
             rclpy.init()
             self.owns_rclpy = True
 
-        super().__init__('control_processor')
+        super().__init__(node_name)
 
         # Variables for ROS topics
         self.imageColor_msg = None

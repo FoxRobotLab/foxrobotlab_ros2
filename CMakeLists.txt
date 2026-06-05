@@ -27,6 +27,7 @@ install(PROGRAMS
   src/turtle_control_processor.py
   src/turtle_control_display.py
   src/turtle_control_smoke_test.py
+  src/turtle_control_getter_test.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
