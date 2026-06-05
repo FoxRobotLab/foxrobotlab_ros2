@@ -13,16 +13,20 @@ from rclpy.node import Node
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import BatteryState, Image, Imu
 from std_msgs.msg import String
+from geometry_msgs.msg import Twist
 from kobuki_ros_interfaces.msg import SensorState, BumperEvent, WheelDropEvent, CliffEvent
 
 from cv_bridge import CvBridge
+
+# NOTE: This is a placeholder to make the current matchPlanner work
+import threading
 
 QOS = 10
 STATUS_PERIOD_SECONDS = 0.5
 
 
 class TurtleControlProcessor(Node):
-    def __init__(self):
+    def __init__(self, spin_in_background=False):
         super().__init__('control_processor')
 
         # Variables for ROS topics
@@ -118,6 +122,18 @@ class TurtleControlProcessor(Node):
             self.cliff_callback,
             QOS,
         )
+
+        # Movement Publisher 
+        # NOTE: This is a placeholder to make the current matchPlanner work
+        self.move_publisher = self.create_publisher(
+            Twist, '/cmd_vel', QOS
+        )
+        self.movement_paused = False
+
+        self.spin_thread = None
+        if spin_in_background:
+            self.spin_thread = threading.Thread(target=self._spin, daemon=True)
+            self.spin_thread.start()
 
     # =================== Callbacks =======================
     def color_image_callback(self, msg: Image):
@@ -236,6 +252,28 @@ class TurtleControlProcessor(Node):
     
     # NOTE: Tha lambda is for reading NEW values of the ROS message, when wait_for_message is called
     # it re-checks imageColor_msg topic not whatever the current value of self.imageColor_msg.
+    
+    # ---------------------- Movement Methods ----------------------
+    # NOTE: This will be removed in future work. The goal is the have Nav2 do all the movement
+    # based on our localization data, so these movement methods will be removed from matchPlanner in future updating.
+    def pauseMovement(self):
+        self.stop()
+        self.movement_paused = True
+
+    def unpauseMovement(self):
+        self.movement_paused = False
+
+    def move(self, translate, rotate):
+        if self.movement_paused:
+            return
+
+        twist = Twist()
+        twist.linear.x = translate
+        twist.angular.z = rotate
+        self.move_publisher.publish(twist)
+
+    def stop(self):
+        self.move_publisher.publish(Twist())
         
     # ======================== Status Formatting ========================
     # -------------- String Building ----------------
@@ -413,6 +451,10 @@ class TurtleControlProcessor(Node):
             self.get_logger().info(f'Waiting for {label}...')
             rclpy.spin_once(self, timeout_sec=0.2)
         return None
+
+    def _spin(self):
+        while rclpy.ok():
+            rclpy.spin_once(self, timeout_sec=0.1)
     
     # --------------------------- String Format Helpers ----------------------
     def bumper_name(self, value):
