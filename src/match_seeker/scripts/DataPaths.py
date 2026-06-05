@@ -19,13 +19,15 @@ import os
 # base path on Enterprise
 # basePath = "/home/macalester/catkin_ws/src/match_seeker/"
 
-
 # base path on FoxVoyager (aka Speedy)
 # basePath = "/home/macalester/Desktop/githubRepositories/catkin_ws/src/match_seeker/"
 
 # base path on Precision
-basePath = "/home/macalester/PycharmProjects/catkin_ws/src/match_seeker/"
-#
+# basePath = "/home/macalester/PycharmProjects/catkin_ws/src/match_seeker/"
+
+# base path on Speedy2
+basePath = '/home/macalester/turtlebot_ros2_ws/src/foxrobotlab_ros2/src/match_seeker/'
+
 turtleBase = 'kobuki' # os.environ["TURTLEBOT_BASE"]
 #
 if turtleBase == "create":
