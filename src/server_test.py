@@ -16,58 +16,59 @@ PORT = 62026
 HEADER_SIZE = 4
 
 
-def recv_exact(sock, byte_count):
-    data = b''
-    while len(data) < byte_count:
-        packet = sock.recv(byte_count - len(data))
-        if not packet:
-            return None
-        data += packet
-    return data
+class ImageServer:
+    def __init__(self):
+        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.server_socket.bind((HOST, PORT))
+        self.server_socket.listen(1)
 
+        print(f'Server listening on: {HOST} | {PORT} ...')
 
-def receive_frame(sock):
-    header = recv_exact(sock, HEADER_SIZE)
-    if header is None:
-        return None
+    def runServer(self):
+        try:
+            conn, addr = self.server_socket.accept()
+            print(f'Connected to client: {addr}')
 
-    image_size = struct.unpack('!I', header)[0]
-    image_data = recv_exact(sock, image_size)
-    if image_data is None:
-        return None
+            with conn:
+                while True:
+                    # Receive the image size first
+                    header = b''
+                    while len(header) < HEADER_SIZE:
+                        packet = conn.recv(HEADER_SIZE - len(header))
+                        if not packet:
+                            return
+                        header += packet
 
-    image_array = np.frombuffer(image_data, np.uint8)
-    return cv2.imdecode(image_array, cv2.IMREAD_COLOR)
+                    image_size = struct.unpack('!I', header)[0]
 
+                    # Keep reading until the whole image has arrived
+                    image_data = b''
+                    while len(image_data) < image_size:
+                        packet = conn.recv(image_size - len(image_data))
+                        if not packet:
+                            return
+                        image_data += packet
 
-def main():
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server_socket.bind((HOST, PORT))
-    server_socket.listen(1)
-    print(f'Server listening on {HOST}:{PORT}...')
+                    # Decode and display the received image
+                    image_array = np.frombuffer(image_data, np.uint8)
+                    frame = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
+                    cv2.imshow('Server - Processed Turtle Image', frame)
 
-    try:
-        conn, addr = server_socket.accept()
-        print(f'Connected to client: {addr}')
+                    # Keep sending a message as long as the display window is running
+                    conn.sendall(b'DISPLAYED\n')
 
-        with conn:
-            while True:
-                frame = receive_frame(conn)
-                if frame is None:
-                    break
+                    if cv2.waitKey(1) & 0xFF == ord('q'):
+                        break
 
-                cv2.imshow('Server - Processed Turtle Image', frame)
-                conn.sendall(b'DISPLAYED\n')
-
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    break
-
-    finally:
-        server_socket.close()
-        cv2.destroyAllWindows()
-        print('Server stopped.')
+        except KeyboardInterrupt:
+            pass
+        finally:
+            self.server_socket.close()
+            cv2.destroyAllWindows()
+            print('Server stopped')
 
 
 if __name__ == '__main__':
-    main()
+    myServ = ImageServer()
+    myServ.runServer()
