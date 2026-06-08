@@ -5,6 +5,7 @@
 
 import socket
 import struct
+import time
 
 import cv2
 
@@ -14,6 +15,7 @@ from turtle_control_processor import TurtleControlProcessor
 SERVER_IP = '10.22.21.57'
 PORT = 62026
 JPEG_QUALITY = 80
+SEND_PERIOD_SECONDS = 0.1
 
 
 class ImageClient:
@@ -50,9 +52,10 @@ class ImageClient:
                 self.client_socket.sendall(image_bytes)
 
                 # Wait for the server to confirm the frame was displayed
-                response = self.client_socket.recv(64).decode('utf-8').strip()
-                if response:
-                    print(f'Frame {count}: server replied "{response}"')
+                self.client_socket.recv(64)
+
+                # Slow the client down so the server display can keep up
+                time.sleep(SEND_PERIOD_SECONDS)
 
         except KeyboardInterrupt:
             pass

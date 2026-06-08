@@ -55,11 +55,12 @@ class ImageServer:
                     frame = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
                     cv2.imshow('Server - Processed Turtle Image', frame)
 
-                    # Keep sending a message as long as the display window is running
-                    conn.sendall(b'DISPLAYED\n')
-
+                    # Let OpenCV update the display window
                     if cv2.waitKey(1) & 0xFF == ord('q'):
                         break
+
+                    # Keep sending a message as long as the display window is running
+                    conn.sendall(b'DISPLAYED\n')
 
         except KeyboardInterrupt:
             pass
