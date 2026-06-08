@@ -11,7 +11,7 @@ import cv2
 from turtle_control_processor import TurtleControlProcessor
 
 
-CLIENT_IP = '141.140.243.85'
+CLIENT_IP = '10.22.21.57'
 PORT = 62026
 JPEG_QUALITY = 80
 SEND_PERIOD_SECONDS = 0.05
