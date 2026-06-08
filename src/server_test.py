@@ -6,6 +6,7 @@
 
 import socket
 import struct
+import select
 
 import cv2
 import numpy as np
@@ -58,9 +59,6 @@ class ImageServer:
                     # Let OpenCV update the display window
                     if cv2.waitKey(1) & 0xFF == ord('q'):
                         break
-
-                    # Keep sending a message as long as the display window is running
-                    conn.sendall(b'DISPLAYED\n')
 
         except KeyboardInterrupt:
             pass

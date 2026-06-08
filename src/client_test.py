@@ -15,7 +15,7 @@ from turtle_control_processor import TurtleControlProcessor
 SERVER_IP = '10.22.21.57'
 PORT = 62026
 JPEG_QUALITY = 80
-SEND_PERIOD_SECONDS = 0.1
+SEND_PERIOD_SECONDS = 0.05
 
 
 class ImageClient:
@@ -50,9 +50,6 @@ class ImageClient:
 
                 # Send the image bytes
                 self.client_socket.sendall(image_bytes)
-
-                # Wait for the server to confirm the frame was displayed
-                self.client_socket.recv(64)
 
                 # Slow the client down so the server display can keep up
                 time.sleep(SEND_PERIOD_SECONDS)
