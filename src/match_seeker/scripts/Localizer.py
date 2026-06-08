@@ -269,14 +269,6 @@ class Localizer(object):
         elif conf == loc_const.conf_none:
             self.lastKnownLoc = None
             self.confidence = 0.0
-
-
-
-
-
-
-
-
         else:
             self.confidence = 0.0
 

@@ -13,6 +13,10 @@ Team Summer 2019 did not make a lot of changes here, however now the GUI doesn't
 always accurately reflect what is happening. Fix what is being logged to the
 GUI here and in SeekerGUI2.py
 
+Team Summer 2026 started to refactor for ROS2. Changes made:
+- Now using TurtleControlProcessor to replace turtleControl.py
+- 
+
 Note: Do not start matchPlanner unless the robot is on the ground, otherwise the odometry
 will be off.
 
@@ -162,7 +166,7 @@ class MatchPlanner(object):
                         # self.speak("Destination reached")
                         self.robot.stop()
                         self.robot.updateOdomLocation(nodeAndPose[1][0], nodeAndPose[1][1], nodeAndPose[1][2])
-                        self.locator.odomScore = 100
+                        # self.locator.odomScore = 100
                         self.getStartLocation(nextDest=True)
                         ready = self.getNextGoalDestination()
                         print("matchPlanner 168 --------- "+str(ready))
