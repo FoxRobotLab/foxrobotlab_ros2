@@ -33,8 +33,6 @@ ament_python_install_package(${PROJECT_NAME})
 install(PROGRAMS
   src/turtle_control_reciever.py
   src/turtle_control_processor.py
-  src/turtle_control_display.py
-  src/turtle_control_getter_test.py
   src/client_test.py
   src/server_test.py
   DESTINATION lib/${PROJECT_NAME}
