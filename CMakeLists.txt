@@ -18,6 +18,14 @@ install(DIRECTORY
   DESTINATION share/${PROJECT_NAME}
 )
 
+install(DIRECTORY
+  src/match_seeker
+  DESTINATION share/${PROJECT_NAME}/src
+  USE_SOURCE_PERMISSIONS
+  PATTERN "__pycache__" EXCLUDE
+  PATTERN "*.pyc" EXCLUDE
+)
+
 # Installing python modules
 ament_python_install_package(${PROJECT_NAME})
 
@@ -30,6 +38,11 @@ install(PROGRAMS
   src/client_test.py
   src/server_test.py
   DESTINATION lib/${PROJECT_NAME}
+)
+
+install(PROGRAMS
+  src/turtle_control_processor.py
+  DESTINATION share/${PROJECT_NAME}/src
 )
 
 if(BUILD_TESTING)

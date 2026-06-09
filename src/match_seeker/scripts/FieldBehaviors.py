@@ -194,7 +194,7 @@ class CliffReact(PotentialFieldBehavior):
 
     def update(self):
         cliffCode = self.robot.getCliffStatus()
-        if cliffCode != False or cliffCode != 0:
+        if cliffCode != 0:
             self.emergencyStop()
         else:
             self.setVector(0.0, 0.0)
@@ -207,10 +207,10 @@ class ObstacleForce(PotentialFieldBehavior):
         a speed multiplier, and optionally a setting for the size of the depth
         image, botWidth and botHeight. Sets up the section of the depth image to use."""
         super(ObstacleForce, self).__init__()
-        self.depthImWid = imWid
-        self.depthImHgt = imHgt
-        self.startCol = startCol
-        self.sampleWidth = sampWid
+        self.depthImWid = int(imWid)
+        self.depthImHgt = int(imHgt)
+        self.startCol = int(startCol)
+        self.sampleWidth = int(sampWid)
         posPercent = (self.startCol + (self.sampleWidth / 2.0)) / self.depthImWid # should be good since it returns a float in og
 
         self.speedMult = speedMult
@@ -251,5 +251,4 @@ class ObstacleForce(PotentialFieldBehavior):
             self.setVector(self.speedMult / meanDistance, 180 - self.angle)
         else:
             self.setVector(0.0, 0.0)
-
 
