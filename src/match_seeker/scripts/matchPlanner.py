@@ -30,7 +30,7 @@ import numpy as np
 # import MovementHandler
 import PotentialFieldThread
 import FieldBehaviors
-import Localizer
+import Localizer2
 import PathLocation
 import OutputLogger
 import OlinWorldMap
@@ -95,7 +95,7 @@ class MatchPlanner(object):
         if start:
             nodeAndPose = int(self.olinMap.convertLocToCell((self.startX, self.startY, self.startYaw))), (self.startX, self.startY, self.startYaw)
             ready = (start and self.getNextGoalDestination())
-            self.locator = Localizer.Localizer(self.robot, self.olinMap, self.logger, self.gui)
+            self.locator = Localizer2.LocalizerOdom(self.robot, self.olinMap, self.logger, self.gui)
             self.robot.unpauseMovement()
         else:
             ready = False

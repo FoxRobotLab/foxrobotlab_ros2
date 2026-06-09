@@ -25,8 +25,9 @@ import os
 # base path on Precision
 # basePath = "/home/macalester/PycharmProjects/catkin_ws/src/match_seeker/"
 
-# base path on Speedy2
-basePath = '/home/macalester/turtlebot_ros2_ws/src/foxrobotlab_ros2/src/match_seeker/'
+# Resolve the match_seeker directory from this file so the map paths work
+# regardless of which user's workspace the repo is checked out in.
+basePath = os.path.abspath(os.path.join(os.path.dirname(__file__), '..')) + os.sep
 
 turtleBase = 'kobuki' # os.environ["TURTLEBOT_BASE"]
 #
