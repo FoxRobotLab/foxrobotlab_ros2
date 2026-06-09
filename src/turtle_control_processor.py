@@ -181,8 +181,7 @@ class TurtleControlProcessor(Node):
     # ---------------------- For Localizer ------------------
     def getOdomData(self):
         raw_x, raw_y, raw_yaw = self.get_raw_odom()
-        x = raw_x + self.offset_x
-        y = raw_y + self.offset_y
+        x, y = self.transform_raw_xy_to_map(raw_x, raw_y)
         yaw = self.normalize_degrees(raw_yaw + self.offset_yaw)
 
         return x, y, yaw
@@ -190,17 +189,13 @@ class TurtleControlProcessor(Node):
     def updateOdomLocation(self, x=0, y=0, yaw=0.0):
         raw_x, raw_y, raw_yaw = self.get_raw_odom()
 
-        old_x = self.prev_x - self.offset_x
-        old_y = self.prev_y - self.offset_y
-        old_yaw = self.prev_yaw - self.offset_yaw
-
-        self.offset_x = x - raw_x
-        self.offset_y = y - raw_y
         self.offset_yaw = self.normalize_degrees(yaw - raw_yaw)
 
-        self.prev_x = old_x + self.offset_x
-        self.prev_y = old_y + self.offset_y
-        self.prev_yaw = self.normalize_degrees(old_yaw + self.offset_yaw)
+        rotated_raw_x, rotated_raw_y = self.rotate_raw_xy(raw_x, raw_y)
+        self.offset_x = x - rotated_raw_x
+        self.offset_y = y - rotated_raw_y
+
+        self.prev_x, self.prev_y, self.prev_yaw = self.getOdomData()
 
         return self.offset_x, self.offset_y, self.offset_yaw
     
@@ -471,6 +466,18 @@ class TurtleControlProcessor(Node):
         yaw = self.euler_from_quaternion(odom_orientation)
 
         return x, y, yaw
+
+    def transform_raw_xy_to_map(self, raw_x, raw_y):
+        rotated_x, rotated_y = self.rotate_raw_xy(raw_x, raw_y)
+        return rotated_x + self.offset_x, rotated_y + self.offset_y
+
+    def rotate_raw_xy(self, raw_x, raw_y):
+        yaw_offset = math.radians(self.offset_yaw)
+        cos_yaw = math.cos(yaw_offset)
+        sin_yaw = math.sin(yaw_offset)
+        map_x = raw_x * cos_yaw - raw_y * sin_yaw
+        map_y = raw_x * sin_yaw + raw_y * cos_yaw
+        return map_x, map_y
     
     def euler_from_quaternion(self, orientation):
         x = orientation.x
