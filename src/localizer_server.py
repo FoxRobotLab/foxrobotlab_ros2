@@ -21,6 +21,7 @@ import cv2
 HOST = os.environ.get('FOX_LOCALIZER_SERVER_HOST', '0.0.0.0')
 PORT = int(os.environ.get('FOX_LOCALIZER_SERVER_PORT', '62027'))
 SHOW_IMAGES = os.environ.get('FOX_LOCALIZER_SHOW_IMAGES', '0') == '1'
+CLOSE_ENOUGH_METERS = float(os.environ.get('FOX_LOCALIZER_CLOSE_ENOUGH', '0.7'))
 
 class RobotServer():
     def __init__(self):
@@ -50,6 +51,7 @@ class RobotServer():
                         cell = near_node
                     else:
                         cell = int(cell)
+                    status = loc_const.at_node if best_dist <= CLOSE_ENOUGH_METERS else loc_const.close
                     
                     print(f"Frame {header['frame_id']} | Odom {odom}")
 
@@ -60,8 +62,9 @@ class RobotServer():
 
                     result = {
                         'frame_id': header['frame_id'],
-                        'status': loc_const.close,
-                        'node': cell,
+                        'status': status,
+                        'node': near_node,
+                        'cell': cell,
                         'pose': {
                             'x': odom['x'],
                             'y': odom['y'],

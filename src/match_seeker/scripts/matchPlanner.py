@@ -233,6 +233,7 @@ class MatchPlanner(object):
                 REMOTE_LOCALIZER_IP,
                 REMOTE_LOCALIZER_PORT,
                 timeout=REMOTE_LOCALIZER_TIMEOUT,
+                gui=self.gui,
             )
 
         self.logger.log("Using local odometry localizer")

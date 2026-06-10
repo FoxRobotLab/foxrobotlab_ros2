@@ -13,8 +13,9 @@ import LocalizerStringConstants as loc_const
 from localizer_protocol import send_frame, recv_result
 
 class RemoteLocalizer:
-    def __init__(self, robot, server_ip, port, timeout=2.0):
+    def __init__(self, robot, server_ip, port, timeout=2.0, gui=None):
         self.robot = robot
+        self.gui = gui
         self.frame_id = 0
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.settimeout(timeout)
@@ -36,6 +37,7 @@ class RemoteLocalizer:
                     pose['yaw'],
                 )
             )
+            self._update_gui(odom, result)
             return result['status'], node_and_pose
         
         except (socket.timeout, ConnectionError, OSError, ValueError) as error:
@@ -46,3 +48,14 @@ class RemoteLocalizer:
 
     def close(self):
         self.sock.close()
+
+    def _update_gui(self, odom, result):
+        if self.gui is None:
+            return
+
+        confidence = result.get('confidence', 0.0)
+        self.gui.updateOdomList([odom[0], odom[1], odom[2], confidence])
+        self.gui.updateCNode(result['node'])
+        if 'cell' in result:
+            self.gui._send({'current_cell': result['cell']})
+        self.gui.updateMatchStatus('remote odom/localizer')

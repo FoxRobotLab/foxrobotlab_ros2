@@ -47,6 +47,7 @@ class UnifiedSeekerGUI:
         self.mode = tk.StringVar(value='Mode: unknown')
         self.battery = tk.StringVar(value='Battery: unknown')
         self.current_node = tk.StringVar(value='Current node: unknown')
+        self.current_cell = tk.StringVar(value='Current cell: unknown')
         self.next_node = tk.StringVar(value='Next node: unknown')
         self.match_status = tk.StringVar(value='Match: unknown')
         self.target_distance = tk.StringVar(value='Target distance: unknown')
@@ -106,6 +107,7 @@ class UnifiedSeekerGUI:
         for idx, variable in enumerate(
             [
                 self.current_node,
+                self.current_cell,
                 self.next_node,
                 self.match_status,
                 self.target_distance,
@@ -271,6 +273,8 @@ class UnifiedSeekerGUI:
             self.battery.set(f"Battery: {fields['battery']}")
         if 'current_node' in fields:
             self.current_node.set(f"Current node: {fields['current_node']}")
+        if 'current_cell' in fields:
+            self.current_cell.set(f"Current cell: {fields['current_cell']}")
         if 'next_node' in fields:
             self.next_node.set(f"Next node: {fields['next_node']}")
         if 'match_status' in fields:
