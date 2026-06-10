@@ -135,7 +135,7 @@ class MatchPlanner(object):
             # self.checkCoordinates(odomInfo)
 
             self.logger.log("-------------- New Match ---------------")
-            time.sleep(1)
+            time.sleep(0.03)
 
             if status == loc_const.temp_lost:  # bestMatch score < 5 but lostCount < 10
                 self.goalSeeker.setGoal(None, None, None)
