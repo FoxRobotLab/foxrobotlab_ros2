@@ -43,6 +43,7 @@ import os
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from turtle_control_processor import TurtleControlProcessor
+from remote_localizer import RemoteLocalizer
 
 
 class MatchPlanner(object):
@@ -95,7 +96,11 @@ class MatchPlanner(object):
         if start:
             nodeAndPose = int(self.olinMap.convertLocToCell((self.startX, self.startY, self.startYaw))), (self.startX, self.startY, self.startYaw)
             ready = (start and self.getNextGoalDestination())
-            self.locator = Localizer2.LocalizerOdom(self.robot, self.olinMap, self.logger, self.gui)
+            self.locator = RemoteLocalizer(
+                self.robot,
+                '10.22.21.57',
+                62027
+            )
             self.robot.unpauseMovement()
         else:
             ready = False
@@ -431,9 +436,10 @@ class MatchPlanner(object):
         self.gui.stop()
         self.brain.stop()  # was stopAll
         cv2.destroyAllWindows()
+        if self.locator is not None and hasattr(self.locator, 'close'):
+            self.locator.close()
         self.robot.shutdown()
         sys.exit(0)
-
 
 if __name__ == "__main__":
     plan = MatchPlanner()

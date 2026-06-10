@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 
 import socket 
+import OlinWorldMap
 
+import LocalizerStringConstants as loc_const
 from localizer_protocol import recv_frame, send_result
+
 import cv2
 
 HOST = '0.0.0.0'
@@ -14,6 +17,8 @@ class RobotServer():
         self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.server_socket.bind((HOST, PORT))
         self.server_socket.listen(1)
+
+        self.olinMap = OlinWorldMap.WorldMap()
 
         print(f'Server listening on: {HOST} | {PORT} ...')
 
@@ -27,6 +32,10 @@ class RobotServer():
                     header, frame = recv_frame(conn)
                     odom = header['odom']
 
+                    pose = (odom['x'], odom['y'], odom['yaw'])
+                    near_node, node_x, node_y, best_dist = self.olinMap.findClosestNode(pose)
+                    cell = int(self.olinMap.convertLocToCell(pose))
+                    
                     print(f"Frame {header['frame_id']} | Odom {odom}")
 
                     cv2.imshow('Localizer', frame)
@@ -35,8 +44,8 @@ class RobotServer():
 
                     result = {
                         'frame_id': header['frame_id'],
-                        'status': 'close',
-                        'node': 1,
+                        'status': loc_const.close,
+                        'node': cell,
                         'pose': {
                             'x': odom['x'],
                             'y': odom['y'],
