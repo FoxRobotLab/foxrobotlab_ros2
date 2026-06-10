@@ -42,7 +42,7 @@ class UnifiedSeekerGUI:
         self.command_sock = None
 
         self.connection_status = tk.StringVar(value='Video: waiting')
-        self.command_status = tk.StringVar(value='Commands: disconnected')
+        self.command_status = tk.StringVar(value='Commands: idle')
         self.video_rate = tk.StringVar(value='0.0 fps')
         self.mode = tk.StringVar(value='Mode: unknown')
         self.battery = tk.StringVar(value='Battery: unknown')

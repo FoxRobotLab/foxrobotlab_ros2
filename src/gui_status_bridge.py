@@ -64,7 +64,8 @@ class GuiStatusBridge:
             send_status(self.sock, fields)
         except OSError as error:
             print(f'GUI status bridge disconnected: {error}')
-            self.close()
+            self.sock.close()
+            self.sock = None
 
     def _run_command_server(self):
         while self.command_running:

@@ -8,6 +8,7 @@ video_stream:
     refresh_ms: 33
     planner_status_host: "0.0.0.0"
     planner_status_port: 62029
+    # Robot IP. The unified GUI connects to the robot-side command server.
     planner_command_ip: "10.22.21.57"
     planner_command_port: 62030
   server:
