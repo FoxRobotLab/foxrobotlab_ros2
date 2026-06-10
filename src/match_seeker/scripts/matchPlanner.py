@@ -44,6 +44,23 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from turtle_control_processor import TurtleControlProcessor
 from remote_localizer import RemoteLocalizer
+from gui_status_bridge import GuiStatusBridge
+from headless_seeker_gui import HeadlessSeekerGUI
+
+
+USE_REMOTE_LOCALIZER = os.environ.get('FOX_REMOTE_LOCALIZER', '1') != '0'
+REMOTE_LOCALIZER_IP = os.environ.get('FOX_LOCALIZER_SERVER_IP', '10.22.21.57')
+REMOTE_LOCALIZER_PORT = int(os.environ.get('FOX_LOCALIZER_SERVER_PORT', '62027'))
+REMOTE_LOCALIZER_TIMEOUT = float(os.environ.get('FOX_LOCALIZER_TIMEOUT', '2.0'))
+USE_GUI_STATUS_BRIDGE = os.environ.get('FOX_GUI_STATUS_BRIDGE', '1') != '0'
+GUI_STATUS_SERVER_IP = os.environ.get('FOX_GUI_STATUS_SERVER_IP', REMOTE_LOCALIZER_IP)
+GUI_STATUS_SERVER_PORT = int(os.environ.get('FOX_GUI_STATUS_SERVER_PORT', '62029'))
+USE_GUI_COMMAND_SERVER = os.environ.get('FOX_GUI_COMMAND_SERVER', '1') != '0'
+GUI_COMMAND_SERVER_HOST = os.environ.get('FOX_GUI_COMMAND_SERVER_HOST', '0.0.0.0')
+GUI_COMMAND_SERVER_PORT = int(os.environ.get('FOX_GUI_COMMAND_SERVER_PORT', '62030'))
+MATCH_LOOP_SLEEP = float(os.environ.get('FOX_MATCH_LOOP_SLEEP', '0.03'))
+DISPLAY_WINDOWS = os.environ.get('FOX_DISPLAY_WINDOWS', '0') == '1'
+USE_LEGACY_GUI = os.environ.get('FOX_USE_LEGACY_GUI', '0') == '1'
 
 
 class MatchPlanner(object):
@@ -59,10 +76,9 @@ class MatchPlanner(object):
         self.goalSeeker = None
         self.whichBrain = ""
 
-        # cv2.namedWindow("Turtlebot View")
-        # cv2.moveWindow("Turtlebot View",820,25)
-        cv2.namedWindow("MCL Display")
-        cv2.moveWindow("MCL Display", 1300, 25)
+        if DISPLAY_WINDOWS:
+            cv2.namedWindow("MCL Display")
+            cv2.moveWindow("MCL Display", 1300, 25)
 
         self.logger = OutputLogger.OutputLogger(True, False)
 
@@ -81,7 +97,19 @@ class MatchPlanner(object):
 
         self.ignoreLocationCount = 0
 
-        self.gui = SeekerGUI2.SeekerGUI2(self, self.robot)
+        if USE_LEGACY_GUI:
+            legacy_gui = SeekerGUI2.SeekerGUI2(self, self.robot)
+        else:
+            legacy_gui = HeadlessSeekerGUI(self, self.robot)
+        self.gui = GuiStatusBridge(
+            legacy_gui,
+            GUI_STATUS_SERVER_IP,
+            GUI_STATUS_SERVER_PORT,
+            enabled=USE_GUI_STATUS_BRIDGE,
+            command_host=GUI_COMMAND_SERVER_HOST,
+            command_port=GUI_COMMAND_SERVER_PORT,
+            command_enabled=USE_GUI_COMMAND_SERVER,
+        )
         self.gui.update()
 
     def run(self):
@@ -96,11 +124,7 @@ class MatchPlanner(object):
         if start:
             nodeAndPose = int(self.olinMap.convertLocToCell((self.startX, self.startY, self.startYaw))), (self.startX, self.startY, self.startYaw)
             ready = (start and self.getNextGoalDestination())
-            self.locator = RemoteLocalizer(
-                self.robot,
-                '10.22.21.57',
-                62027
-            )
+            self.locator = self._createLocator()
             self.robot.unpauseMovement()
         else:
             ready = False
@@ -108,13 +132,14 @@ class MatchPlanner(object):
         while ready and not self.robot.is_shutdown():
             self.gui.update()
             image = self.robot.getImage()[0]
-            cv2.imshow("Turtlebot View", image)
-            cv_image = self.robot.getDepth()
-            cv_image = cv_image.astype(np.uint8)
-            im = cv2.normalize(cv_image, None, 0, 255, cv2.NORM_MINMAX)
-            ret, im = cv2.threshold(cv_image, 1, 255, cv2.THRESH_BINARY)
-            cv2.imshow("Depth View", im)
-            cv2.waitKey(20)
+            if DISPLAY_WINDOWS:
+                cv2.imshow("Turtlebot View", image)
+                cv_image = self.robot.getDepth()
+                cv_image = cv_image.astype(np.uint8)
+                im = cv2.normalize(cv_image, None, 0, 255, cv2.NORM_MINMAX)
+                ret, im = cv2.threshold(cv_image, 1, 255, cv2.THRESH_BINARY)
+                cv2.imshow("Depth View", im)
+                cv2.waitKey(20)
 
             self.brain.unpause()
 
@@ -135,7 +160,7 @@ class MatchPlanner(object):
             # self.checkCoordinates(odomInfo)
 
             self.logger.log("-------------- New Match ---------------")
-            time.sleep(0.03)
+            time.sleep(MATCH_LOOP_SLEEP)
 
             if status == loc_const.temp_lost:  # bestMatch score < 5 but lostCount < 10
                 self.goalSeeker.setGoal(None, None, None)
@@ -194,6 +219,24 @@ class MatchPlanner(object):
                 print("matchPlanner.run " + str(iterationCount) + " status=" + status + " whichBrain=" + self.whichBrain)
                 iterationCount += 1
         self.shutdown()
+
+    def _createLocator(self):
+        if USE_REMOTE_LOCALIZER:
+            self.logger.log(
+                "Using remote localizer at {0}:{1}".format(
+                    REMOTE_LOCALIZER_IP,
+                    REMOTE_LOCALIZER_PORT,
+                )
+            )
+            return RemoteLocalizer(
+                self.robot,
+                REMOTE_LOCALIZER_IP,
+                REMOTE_LOCALIZER_PORT,
+                timeout=REMOTE_LOCALIZER_TIMEOUT,
+            )
+
+        self.logger.log("Using local odometry localizer")
+        return Localizer2.LocalizerOdom(self.robot, self.olinMap, self.logger, self.gui)
 
     def getStartLocation(self, nextDest=False):
         #self.brain.pause()
@@ -435,7 +478,8 @@ class MatchPlanner(object):
         self.robot.stop()
         self.gui.stop()
         self.brain.stop()  # was stopAll
-        cv2.destroyAllWindows()
+        if DISPLAY_WINDOWS:
+            cv2.destroyAllWindows()
         if self.locator is not None and hasattr(self.locator, 'close'):
             self.locator.close()
         self.robot.shutdown()

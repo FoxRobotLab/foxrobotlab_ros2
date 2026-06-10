@@ -1,0 +1,20 @@
+remote_localizer:
+  enabled: true
+  server_ip: "10.22.21.57"
+  server_port: 62027
+  timeout: 2.0
+
+planner:
+  match_loop_sleep: 0.03
+  display_windows: false
+  use_legacy_gui: false
+
+gui_status_bridge:
+  enabled: true
+  server_ip: "10.22.21.57"
+  server_port: 62029
+
+gui_command_server:
+  enabled: true
+  host: "0.0.0.0"
+  port: 62030

@@ -1,4 +1,13 @@
+import os
 import socket
+import sys
+
+MATCH_SEEKER_SCRIPTS = os.path.join(
+    os.path.dirname(__file__),
+    'match_seeker',
+    'scripts',
+)
+sys.path.append(os.path.abspath(MATCH_SEEKER_SCRIPTS))
 
 import LocalizerStringConstants as loc_const
 from localizer_protocol import send_frame, recv_result
@@ -29,7 +38,7 @@ class RemoteLocalizer:
             )
             return result['status'], node_and_pose
         
-        except (socket.timeout, ConnectionError) as error:
+        except (socket.timeout, ConnectionError, OSError, ValueError) as error:
             print(f'Remote Localization FAILED {error}')
             self.robot.stop()
             return loc_const.temp_lost, None

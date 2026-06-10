@@ -10,6 +10,7 @@ import numpy as np
 HEADER_SIZE = 4
 QUALITY = 80
 
+
 def recv_exact(sock, size):
     data = b''
 
@@ -17,17 +18,18 @@ def recv_exact(sock, size):
         packet = sock.recv(size - len(data))
 
         if not packet:
-            print('recv_exact FAILED')
-            return None
+            raise ConnectionError('Socket closed while receiving data')
         
         data += packet
 
     return data
 
+
 def send_json(sock, payload):
     data = json.dumps(payload).encode('utf-8')
     sock.sendall(struct.pack('!I', len(data)))
     sock.sendall(data)
+
 
 def recv_json(sock):
     header = recv_exact(sock, HEADER_SIZE)
@@ -37,6 +39,7 @@ def recv_json(sock):
     load_json = json.loads(payload_bytes.decode('utf-8'))
     return load_json
 
+
 def send_frame(sock, image_cv, odom, frame_id):
     success, encoded_image = cv2.imencode(
         '.jpg',
@@ -45,7 +48,7 @@ def send_frame(sock, image_cv, odom, frame_id):
     )
 
     if not success:
-        print('image encoding FAILED')
+        raise ValueError('Failed to encode image')
     
     image_bytes = encoded_image.tobytes()
 
@@ -64,11 +67,12 @@ def send_frame(sock, image_cv, odom, frame_id):
     send_json(sock, header)
     sock.sendall(image_bytes)
 
+
 def recv_frame(sock):
     header = recv_json(sock)
 
     if header.get('type') != 'frame' :
-        print('receive image FAILED')
+        raise ValueError(f"Expected frame message, got {header.get('type')}")
 
     image_size = header['image_size']
     image_bytes = recv_exact(sock, image_size)
@@ -77,18 +81,20 @@ def recv_frame(sock):
     frame = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
 
     if frame is None:
-        print('image decoding FAILED')
+        raise ValueError('Failed to decode image')
 
     return header, frame
+
 
 def send_result(sock, result):
     result['type'] = 'localization_result'
     send_json(sock, result)
 
+
 def recv_result(sock):
     result = recv_json(sock)
 
     if result.get('type') != 'localization_result':
-        print(f"Unexpected localization_result : {result.get('type')}")
+        raise ValueError(f"Expected localization_result, got {result.get('type')}")
 
     return result

@@ -1,6 +1,16 @@
 #!/usr/bin/env python3
 
+import os
 import socket 
+import sys
+
+MATCH_SEEKER_SCRIPTS = os.path.join(
+    os.path.dirname(__file__),
+    'match_seeker',
+    'scripts',
+)
+sys.path.append(os.path.abspath(MATCH_SEEKER_SCRIPTS))
+
 import OlinWorldMap
 
 import LocalizerStringConstants as loc_const
@@ -8,8 +18,9 @@ from localizer_protocol import recv_frame, send_result
 
 import cv2
 
-HOST = '0.0.0.0'
-PORT = 62027
+HOST = os.environ.get('FOX_LOCALIZER_SERVER_HOST', '0.0.0.0')
+PORT = int(os.environ.get('FOX_LOCALIZER_SERVER_PORT', '62027'))
+SHOW_IMAGES = os.environ.get('FOX_LOCALIZER_SHOW_IMAGES', '0') == '1'
 
 class RobotServer():
     def __init__(self):
@@ -34,13 +45,18 @@ class RobotServer():
 
                     pose = (odom['x'], odom['y'], odom['yaw'])
                     near_node, node_x, node_y, best_dist = self.olinMap.findClosestNode(pose)
-                    cell = int(self.olinMap.convertLocToCell(pose))
+                    cell = self.olinMap.convertLocToCell(pose)
+                    if cell is False:
+                        cell = near_node
+                    else:
+                        cell = int(cell)
                     
                     print(f"Frame {header['frame_id']} | Odom {odom}")
 
-                    cv2.imshow('Localizer', frame)
-                    if cv2.waitKey(1) & 0xFF == ord('q'):
-                        break
+                    if SHOW_IMAGES:
+                        cv2.imshow('Localizer', frame)
+                        if cv2.waitKey(1) & 0xFF == ord('q'):
+                            break
 
                     result = {
                         'frame_id': header['frame_id'],
@@ -57,7 +73,8 @@ class RobotServer():
                     send_result(conn, result)
         finally:
             self.server_socket.close()
-            cv2.destroyAllWindows()
+            if SHOW_IMAGES:
+                cv2.destroyAllWindows()
             print('Server Stopped')
 
 if __name__ == '__main__':

@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 
+import os
 import socket
 import time
 
 from turtle_control_processor import TurtleControlProcessor
 from localizer_protocol import send_frame, recv_result
 
-SERVER_IP = '10.22.21.57'
-PORT = 62027
-SEND_PERIOD_SECONDS = 0.05
+SERVER_IP = os.environ.get('FOX_LOCALIZER_SERVER_IP', '10.22.21.57')
+PORT = int(os.environ.get('FOX_LOCALIZER_SERVER_PORT', '62027'))
+SEND_PERIOD_SECONDS = float(os.environ.get('FOX_LOCALIZER_SEND_PERIOD', '0.05'))
 
 class RobotClient():
     def __init__(self):

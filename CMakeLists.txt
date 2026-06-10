@@ -33,13 +33,27 @@ ament_python_install_package(${PROJECT_NAME})
 install(PROGRAMS
   src/turtle_control_reciever.py
   src/turtle_control_processor.py
-  src/client_test.py
-  src/server_test.py
+  src/localizer_client.py
+  src/localizer_server.py
+  src/video_stream_client.py
+  src/video_stream_server.py
+  src/seeker_gui_unified.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
 install(PROGRAMS
   src/turtle_control_processor.py
+  src/localizer_protocol.py
+  src/localizer_client.py
+  src/localizer_server.py
+  src/remote_localizer.py
+  src/planner_protocol.py
+  src/gui_status_bridge.py
+  src/headless_seeker_gui.py
+  src/video_protocol.py
+  src/video_stream_client.py
+  src/video_stream_server.py
+  src/seeker_gui_unified.py
   DESTINATION share/${PROJECT_NAME}/src
 )
 

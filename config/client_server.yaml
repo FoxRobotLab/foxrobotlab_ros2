@@ -1,0 +1,25 @@
+localizer_server:
+  host: "0.0.0.0"
+  port: 62027
+  show_images: false
+
+video_stream:
+  gui:
+    refresh_ms: 33
+    planner_status_host: "0.0.0.0"
+    planner_status_port: 62029
+    planner_command_ip: "10.22.21.57"
+    planner_command_port: 62030
+  server:
+    host: "0.0.0.0"
+    port: 62028
+    show_images: true
+    fps_report_period: 2.0
+  client:
+    server_ip: "10.22.21.57"
+    port: 62028
+    target_fps: 30.0
+    jpeg_quality: 45
+    resize_width: 320
+    resize_height: 240
+    send_depth: true
