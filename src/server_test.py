@@ -6,7 +6,6 @@
 
 import socket
 import struct
-import select
 
 import cv2
 import numpy as np
