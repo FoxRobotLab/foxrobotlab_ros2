@@ -5,8 +5,16 @@ import sys
 
 
 def main():
+    os.environ.setdefault('TF_ENABLE_ONEDNN_OPTS', '0')
+    os.environ.setdefault('TF_NUM_INTRAOP_THREADS', '1')
+    os.environ.setdefault('TF_NUM_INTEROP_THREADS', '1')
+    os.environ.setdefault('OMP_NUM_THREADS', '1')
+
     print('TensorFlow check: starting')
     print(f'TensorFlow check: python={sys.executable}')
+    print(f"TensorFlow check: TF_ENABLE_ONEDNN_OPTS={os.environ.get('TF_ENABLE_ONEDNN_OPTS')}")
+    print(f"TensorFlow check: TF_NUM_INTRAOP_THREADS={os.environ.get('TF_NUM_INTRAOP_THREADS')}")
+    print(f"TensorFlow check: TF_NUM_INTEROP_THREADS={os.environ.get('TF_NUM_INTEROP_THREADS')}")
 
     try:
         import tensorflow as tf

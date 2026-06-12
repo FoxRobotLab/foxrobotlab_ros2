@@ -94,6 +94,15 @@ def generate_launch_description():
         'TF_ENABLE_ONEDNN_OPTS': (
             '0' if python_config.get('disable_onednn_opts', False) else ''
         ),
+        'TF_NUM_INTRAOP_THREADS': (
+            '1' if python_config.get('limit_tensorflow_threads', False) else ''
+        ),
+        'TF_NUM_INTEROP_THREADS': (
+            '1' if python_config.get('limit_tensorflow_threads', False) else ''
+        ),
+        'OMP_NUM_THREADS': (
+            '1' if python_config.get('limit_tensorflow_threads', False) else ''
+        ),
         'PYTHONUNBUFFERED': '1',
     }
 
