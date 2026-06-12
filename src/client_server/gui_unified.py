@@ -3,6 +3,7 @@
 import os
 import queue
 import socket
+import sys
 import threading
 import time
 import tkinter as tk
@@ -11,8 +12,11 @@ from tkinter import ttk
 import cv2
 from PIL import Image, ImageTk
 
-from planner_protocol import recv_status, send_command
-from video_protocol import recv_video_frame
+FOXROBOTLAB_SRC = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if FOXROBOTLAB_SRC not in sys.path:
+    sys.path.insert(0, FOXROBOTLAB_SRC)
+
+from client_server.protocol import recv_status, recv_video_frame, send_command
 
 
 VIDEO_HOST = os.environ.get('FOX_VIDEO_SERVER_HOST', '0.0.0.0')

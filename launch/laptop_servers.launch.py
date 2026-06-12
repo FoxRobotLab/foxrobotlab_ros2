@@ -28,8 +28,8 @@ def generate_launch_description():
     video_server_config = config['video_stream']['server']
     video_gui_config = config['video_stream']['gui']
 
-    localizer_server = os.path.join(package_dir, 'src', 'localizer_server.py')
-    seeker_gui = os.path.join(package_dir, 'src', 'seeker_gui_unified.py')
+    localizer_server = os.path.join(package_dir, 'src', 'client_server', 'localizer_server.py')
+    seeker_gui = os.path.join(package_dir, 'src', 'client_server', 'gui_unified.py')
 
     ld.add_action(
         ExecuteProcess(

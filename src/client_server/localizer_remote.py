@@ -2,15 +2,19 @@ import os
 import socket
 import sys
 
+FOXROBOTLAB_SRC = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if FOXROBOTLAB_SRC not in sys.path:
+    sys.path.insert(0, FOXROBOTLAB_SRC)
+
 MATCH_SEEKER_SCRIPTS = os.path.join(
-    os.path.dirname(__file__),
+    FOXROBOTLAB_SRC,
     'match_seeker',
     'scripts',
 )
 sys.path.append(os.path.abspath(MATCH_SEEKER_SCRIPTS))
 
 import LocalizerStringConstants as loc_const
-from localizer_protocol import send_frame, recv_result
+from client_server.protocol import recv_result, send_frame
 
 class RemoteLocalizer:
     def __init__(self, robot, server_ip, port, timeout=2.0, gui=None):

@@ -2,12 +2,17 @@
 
 import os
 import socket
+import sys
 import time
 
 import cv2
 
+FOXROBOTLAB_SRC = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if FOXROBOTLAB_SRC not in sys.path:
+    sys.path.insert(0, FOXROBOTLAB_SRC)
+
 from turtle_control_processor import TurtleControlProcessor
-from video_protocol import send_video_frame
+from client_server.protocol import send_video_frame
 
 
 SERVER_IP = os.environ.get('FOX_VIDEO_SERVER_IP', '10.22.21.57')

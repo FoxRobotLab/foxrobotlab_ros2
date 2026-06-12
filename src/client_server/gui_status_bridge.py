@@ -5,7 +5,7 @@ import socket
 import threading
 import time
 
-from planner_protocol import recv_command, send_status
+from client_server.protocol import recv_command, send_status
 
 
 class GuiStatusBridge:

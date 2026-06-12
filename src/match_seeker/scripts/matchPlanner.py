@@ -41,11 +41,15 @@ import LocalizerStringConstants as loc_const
 import sys
 import os
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
+FOXROBOTLAB_SRC = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+if FOXROBOTLAB_SRC not in sys.path:
+    sys.path.insert(0, FOXROBOTLAB_SRC)
+
+# Server - Client Setup
 from turtle_control_processor import TurtleControlProcessor
-from remote_localizer import RemoteLocalizer
-from gui_status_bridge import GuiStatusBridge
-from headless_seeker_gui import HeadlessSeekerGUI
+from client_server.localizer_remote import RemoteLocalizer
+from client_server.gui_status_bridge import GuiStatusBridge
+from client_server.gui_headless import HeadlessSeekerGUI
 
 
 USE_REMOTE_LOCALIZER = os.environ.get('FOX_REMOTE_LOCALIZER', '1') != '0'

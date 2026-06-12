@@ -2,11 +2,16 @@
 
 import os
 import socket
+import sys
 import time
 
 import cv2
 
-from video_protocol import recv_video_frame
+FOXROBOTLAB_SRC = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if FOXROBOTLAB_SRC not in sys.path:
+    sys.path.insert(0, FOXROBOTLAB_SRC)
+
+from client_server.protocol import recv_video_frame
 
 
 HOST = os.environ.get('FOX_VIDEO_SERVER_HOST', '0.0.0.0')

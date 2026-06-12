@@ -25,7 +25,7 @@ def generate_launch_description():
     config = _load_config(package_dir)
     video_client_config = config['video_stream']['client']
 
-    video_stream_client = os.path.join(package_dir, 'src', 'video_stream_client.py')
+    video_stream_client = os.path.join(package_dir, 'src', 'client_server', 'video_client.py')
 
     ld.add_action(
         ExecuteProcess(
