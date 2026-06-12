@@ -3,6 +3,18 @@ localizer_server:
   port: 62027
   show_images: false
 
+python_env:
+  # Enable this on the laptop when the localizer server needs TensorFlow/CNN/MCL.
+  enabled: false
+  # Runs a short TensorFlow import/GPU check as a separate process during laptop launch.
+  run_tensorflow_check: false
+  # Relative paths are resolved from the workspace root, not from src/.
+  venv_path: ".venv"
+  python_executable: ""
+  add_nvidia_library_path: true
+  # DO NOT enable this, this transfers gui processes to the venv.
+  use_for_gui: false
+
 video_stream:
   gui:
     refresh_ms: 33

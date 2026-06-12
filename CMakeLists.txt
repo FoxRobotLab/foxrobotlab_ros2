@@ -15,6 +15,7 @@ find_package(rclpy REQUIRED)
 install(DIRECTORY
   launch
   config
+  scripts
   DESTINATION share/${PROJECT_NAME}
 )
 
@@ -35,6 +36,7 @@ install(PROGRAMS
   src/turtle_control_reciever.py
   src/turtle_control_processor.py
   src/client_server/localizer_server.py
+  src/client_server/tensorflow_check.py
   src/client_server/video_client.py
   src/client_server/video_server.py
   src/client_server/gui_unified.py
