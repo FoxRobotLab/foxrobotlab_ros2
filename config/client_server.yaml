@@ -31,7 +31,7 @@ video_stream:
     show_images: true
     fps_report_period: 2.0
   client:
-    server_ip: "10.32.1.15"
+    server_ip: "10.22.21.57"
     port: 62028
     target_fps: 30.0
     jpeg_quality: 45
