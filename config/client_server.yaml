@@ -2,12 +2,14 @@ localizer_server:
   host: "0.0.0.0"
   port: 62027
   show_images: false
+  mode: 'odom'
+  model: 'lstm_2024'
 
 python_env:
   # Enable this on the laptop when the localizer server needs TensorFlow/CNN/MCL.
-  enabled: true
+  enabled: false
   # Runs a short TensorFlow import/GPU check as a separate process during laptop launch.
-  run_tensorflow_check: true
+  run_tensorflow_check: false
   # Relative paths are resolved from the workspace root, not from src/.
   venv_path: ".venv"
   python_executable: ""

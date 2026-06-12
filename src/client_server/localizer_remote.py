@@ -60,6 +60,12 @@ class RemoteLocalizer:
         confidence = result.get('confidence', 0.0)
         self.gui.updateOdomList([odom[0], odom[1], odom[2], confidence])
         self.gui.updateCNode(result['node'])
+        fields = {}
         if 'cell' in result:
-            self.gui._send({'current_cell': result['cell']})
-        self.gui.updateMatchStatus('remote odom/localizer')
+            fields['current_cell'] = result['cell']
+        for key in ('localizer_mode', 'nav_type', 'mcl', 'best_pic_scores', 'best_pic_locs'):
+            if key in result:
+                fields[key] = result[key]
+        if fields:
+            self.gui._send(fields)
+        self.gui.updateMatchStatus(result.get('localizer_mode', 'remote localizer'))
