@@ -2,8 +2,8 @@ localizer_server:
   host: "0.0.0.0"
   port: 62027
   show_images: false
-  mode: 'odom'
-  model: 'lstm_2024'
+  mode: 'cnn_mcl'
+  model: 'mock'
 
 python_env:
   # Enable this on the laptop when the localizer server needs TensorFlow/CNN/MCL.

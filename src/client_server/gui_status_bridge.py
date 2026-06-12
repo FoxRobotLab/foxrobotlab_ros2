@@ -22,6 +22,9 @@ class GuiStatusBridge:
     ):
         self.legacy_gui = legacy_gui
         self.enabled = enabled
+        self.server_ip = server_ip
+        self.port = port
+        self.timeout = timeout
         self.sock = None
         self.command_enabled = command_enabled
         self.command_host = command_host
@@ -34,13 +37,7 @@ class GuiStatusBridge:
         if not enabled:
             return
 
-        try:
-            self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.sock.settimeout(timeout)
-            self.sock.connect((server_ip, port))
-        except OSError as error:
-            print(f'GUI status bridge disabled: {error}')
-            self.sock = None
+        self._connect_status_socket()
 
         if command_enabled:
             self.command_running = True
@@ -57,6 +54,11 @@ class GuiStatusBridge:
         self.command_running = False
 
     def _send(self, fields):
+        if not self.enabled:
+            return
+
+        if self.sock is None:
+            self._connect_status_socket()
         if self.sock is None:
             return
 
@@ -66,6 +68,21 @@ class GuiStatusBridge:
             print(f'GUI status bridge disconnected: {error}')
             self.sock.close()
             self.sock = None
+
+    def _connect_status_socket(self):
+        if self.sock is not None:
+            return True
+
+        try:
+            self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.sock.settimeout(self.timeout)
+            self.sock.connect((self.server_ip, self.port))
+            print(f'GUI status bridge connected: {self.server_ip}:{self.port}')
+            return True
+        except OSError as error:
+            print(f'GUI status bridge waiting: {error}')
+            self.sock = None
+            return False
 
     def _run_command_server(self):
         while self.command_running:
