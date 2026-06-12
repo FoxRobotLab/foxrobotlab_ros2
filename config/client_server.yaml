@@ -5,9 +5,9 @@ localizer_server:
 
 python_env:
   # Enable this on the laptop when the localizer server needs TensorFlow/CNN/MCL.
-  enabled: false
+  enabled: true
   # Runs a short TensorFlow import/GPU check as a separate process during laptop launch.
-  run_tensorflow_check: false
+  run_tensorflow_check: true
   # Relative paths are resolved from the workspace root, not from src/.
   venv_path: ".venv"
   python_executable: ""
