@@ -12,6 +12,7 @@ python_env:
   venv_path: ".venv"
   python_executable: ""
   add_nvidia_library_path: true
+  disable_onednn_opts: true
   # DO NOT enable this, this transfers gui processes to the venv.
   use_for_gui: false
 

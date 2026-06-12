@@ -91,6 +91,10 @@ def generate_launch_description():
             nvidia_library_path + ':' + os.environ.get('LD_LIBRARY_PATH', '')
             if nvidia_library_path else ''
         ),
+        'TF_ENABLE_ONEDNN_OPTS': (
+            '0' if python_config.get('disable_onednn_opts', False) else ''
+        ),
+        'PYTHONUNBUFFERED': '1',
     }
 
     if python_config.get('run_tensorflow_check', False):
