@@ -15,7 +15,7 @@ import cv2
 import sys
 
 from olri_classifier.cnnRunModel import ModelRunLSTM
-from src.match_seeker.scripts import OlinWorldMap
+import OlinWorldMap
 
 
 class TestModelPredictions:

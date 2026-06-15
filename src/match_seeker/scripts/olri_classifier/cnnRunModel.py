@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.7
+#!/usr/bin/env python3.12
 """--------------------------------------------------------------------------------
 cnnRunModel.py
 Authors: Susan Fox, Bea Bautista, Shosuke Noma, Yifan Wu
@@ -10,19 +10,19 @@ model, and combines the results, providing the top three cell predictions.
 
 Updated: 2024. Added the CNN-LSTM and CNN-Transformer models
 --------------------------------------------------------------------------------"""
-from src.match_seeker.scripts.olri_classifier.paths import DATA, checkPts, textDataPath
+from olri_classifier.paths import DATA, checkPts, textDataPath
 
-from src.match_seeker.scripts.olri_classifier.cnn_cell_model_2019 import CellPredictModel2019
-from src.match_seeker.scripts.olri_classifier.cnn_heading_model_2019 import HeadingPredictModel
+from olri_classifier.cnn_cell_model_2019 import CellPredictModel2019
+from olri_classifier.cnn_heading_model_2019 import HeadingPredictModel
 
-from src.match_seeker.scripts.olri_classifier.cnn_cell_model_RGBinput import CellPredictModelRGB
-from src.match_seeker.scripts.olri_classifier.cnn_heading_model_RGBinput import HeadingPredictModelRGB
+from olri_classifier.cnn_cell_model_RGBinput import CellPredictModelRGB
+from olri_classifier.cnn_heading_model_RGBinput import HeadingPredictModelRGB
 
-from src.match_seeker.scripts.olri_classifier.cnn_lstm_cell_model_2024 import CellPredictModelLSTM
-from src.match_seeker.scripts.olri_classifier.cnn_lstm_heading_model_2024 import HeadingPredictModelLSTM
+from olri_classifier.cnn_lstm_cell_model_2024 import CellPredictModelLSTM
+from olri_classifier.cnn_lstm_heading_model_2024 import HeadingPredictModelLSTM
 
-from src.match_seeker.scripts.olri_classifier.cnn_transformer_cell_model_2024 import CellPredictModelCNNTransformer
-from src.match_seeker.scripts.olri_classifier.cnn_transformer_heading_model_2024 import HeadingPredictModelCNNTransformer
+from olri_classifier.cnn_transformer_cell_model_2024 import CellPredictModelCNNTransformer
+from olri_classifier.cnn_transformer_heading_model_2024 import HeadingPredictModelCNNTransformer
 
 
 # Comment above and uncomment below if needed
