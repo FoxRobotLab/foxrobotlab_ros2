@@ -42,31 +42,12 @@ def _python_executable(package_dir, python_config):
     venv_path = _resolve_path(package_dir, python_config.get('venv_path', '.venv'))
     return os.path.join(venv_path, 'bin', 'python')
 
-
-def _nvidia_library_path(package_dir, python_config):
-    if not python_config.get('enabled', False):
-        return ''
-    if not python_config.get('add_nvidia_library_path', False):
-        return ''
-
-    venv_path = _resolve_path(package_dir, python_config.get('venv_path', '.venv'))
-    nvidia_root = os.path.join(venv_path, 'lib')
-    library_dirs = []
-
-    for root, _, files in os.walk(nvidia_root):
-        if '/nvidia/' not in root:
-            continue
-        if any(name.endswith('.so') or '.so.' in name for name in files):
-            library_dirs.append(root)
-
-    return ':'.join(sorted(set(library_dirs)))
-
-
-def _merge_env(base_env, extra_env):
-    merged = dict(base_env)
-    for key, value in extra_env.items():
-        if value:
-            merged[key] = value
+def _merge_env(*env_maps):
+    merged = {}
+    for env_map in env_maps:
+        for key, value in env_map.items():
+            if value is not None and value != '':
+                merged[key] = _as_env(value)
     return merged
 
 
@@ -82,43 +63,14 @@ def generate_launch_description():
 
     localizer_server = os.path.join(package_dir, 'src', 'client_server', 'localizer_server.py')
     seeker_gui = os.path.join(package_dir, 'src', 'client_server', 'gui_unified.py')
-    tensorflow_check = os.path.join(package_dir, 'src', 'client_server', 'tensorflow_check.py')
     localizer_python = _python_executable(package_dir, python_config)
     gui_python = localizer_python if python_config.get('use_for_gui', False) else sys.executable
-    nvidia_library_path = _nvidia_library_path(package_dir, python_config)
-    tensorflow_env = {
-        'LD_LIBRARY_PATH': (
-            nvidia_library_path + ':' + os.environ.get('LD_LIBRARY_PATH', '')
-            if nvidia_library_path else ''
-        ),
-        'TF_ENABLE_ONEDNN_OPTS': (
-            '0' if python_config.get('disable_onednn_opts', False) else ''
-        ),
-        'TF_NUM_INTRAOP_THREADS': (
-            '1' if python_config.get('limit_tensorflow_threads', False) else ''
-        ),
-        'TF_NUM_INTEROP_THREADS': (
-            '1' if python_config.get('limit_tensorflow_threads', False) else ''
-        ),
-        'OMP_NUM_THREADS': (
-            '1' if python_config.get('limit_tensorflow_threads', False) else ''
-        ),
-        'PYTHONUNBUFFERED': '1',
-    }
-
-    if python_config.get('run_tensorflow_check', False):
-        ld.add_action(
-            ExecuteProcess(
-                cmd=[localizer_python, tensorflow_check],
-                additional_env=tensorflow_env,
-                output='screen',
-            )
-        )
-
+    
     ld.add_action(
         ExecuteProcess(
             cmd=[localizer_python, localizer_server],
             additional_env=_merge_env(
+                python_config.get('env', {}),
                 {
                     'FOX_LOCALIZER_SERVER_HOST': _as_env(localizer_config['host']),
                     'FOX_LOCALIZER_SERVER_PORT': _as_env(localizer_config['port']),
@@ -126,7 +78,6 @@ def generate_launch_description():
                     'FOX_LOCALIZER_MODE': _as_env(localizer_config.get('mode', 'odom')),
                     'FOX_LOCALIZER_MODEL': _as_env(localizer_config.get('model', 'mock')),
                 },
-                tensorflow_env,
             ),
             output='screen',
         )
@@ -136,6 +87,7 @@ def generate_launch_description():
         ExecuteProcess(
             cmd=[gui_python, seeker_gui],
             additional_env=_merge_env(
+                python_config.get('env', {}) if python_config.get('use_for_gui', False) else {},
                 {
                     'FOX_VIDEO_SERVER_HOST': _as_env(video_server_config['host']),
                     'FOX_VIDEO_SERVER_PORT': _as_env(video_server_config['port']),
@@ -146,7 +98,6 @@ def generate_launch_description():
                     'FOX_GUI_COMMAND_SERVER_IP': _as_env(video_gui_config['planner_command_ip']),
                     'FOX_GUI_COMMAND_SERVER_PORT': _as_env(video_gui_config['planner_command_port']),
                 },
-                tensorflow_env if python_config.get('use_for_gui', False) else {},
             ),
             output='screen',
         )
