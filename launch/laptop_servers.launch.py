@@ -77,6 +77,12 @@ def generate_launch_description():
                     'FOX_LOCALIZER_SHOW_IMAGES': _as_env(localizer_config['show_images']),
                     'FOX_LOCALIZER_MODE': _as_env(localizer_config.get('mode', 'odom')),
                     'FOX_LOCALIZER_MODEL': _as_env(localizer_config.get('model', 'mock')),
+                    'FOX_LOCALIZER_MODEL_PATH': _resolve_path(
+                        package_dir,
+                        localizer_config.get('cell_model_path', ''),
+                    ),
+                    'FOX_LOCALIZER_SHOW_MCL': _as_env(localizer_config.get('show_mcl', False)),
+                    'FOX_LOCALIZER_MCL_PARTICLES': _as_env(localizer_config.get('mcl_particles', 250)),
                 },
             ),
             output='screen',

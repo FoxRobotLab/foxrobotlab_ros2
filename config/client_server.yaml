@@ -3,7 +3,10 @@ localizer_server:
   port: 62027
   show_images: false
   mode: 'cnn_mcl'
-  model: 'mock'
+  model: 'lstm_cell'
+  cell_model_path: "src/foxrobotlab_ros2/src/match_seeker/res/models/newCellPredAdam224-74-1.26.keras"
+  show_mcl: false
+  mcl_particles: 250
 
 python_env:
   enabled: true

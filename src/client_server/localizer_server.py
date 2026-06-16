@@ -17,7 +17,7 @@ sys.path.append(os.path.abspath(MATCH_SEEKER_SCRIPTS))
 
 import OlinWorldMap
 
-from client_server.localizer_engines import MockCnnMclLocalizerEngine, OdomLocalizerEngine
+from client_server.localizer_engines import CnnMclLocalizerEngine, MockCnnMclLocalizerEngine, OdomLocalizerEngine
 from client_server.protocol import recv_frame, send_result
 
 import cv2
@@ -28,6 +28,9 @@ SHOW_IMAGES = os.environ.get('FOX_LOCALIZER_SHOW_IMAGES', '0') == '1'
 CLOSE_ENOUGH_METERS = float(os.environ.get('FOX_LOCALIZER_CLOSE_ENOUGH', '0.7'))
 LOCALIZER_MODE = os.environ.get('FOX_LOCALIZER_MODE', 'odom')
 LOCALIZER_MODEL = os.environ.get('FOX_LOCALIZER_MODEL', 'mock')
+LOCALIZER_MODEL_PATH = os.environ.get('FOX_LOCALIZER_MODEL_PATH', '')
+SHOW_MCL = os.environ.get('FOX_LOCALIZER_SHOW_MCL', '0') == '1'
+MCL_PARTICLE_COUNT = int(os.environ.get('FOX_LOCALIZER_MCL_PARTICLES', '250'))
 
 class RobotServer():
     def __init__(self):
@@ -38,12 +41,23 @@ class RobotServer():
 
         self.olinMap = OlinWorldMap.WorldMap()
         if LOCALIZER_MODE == 'cnn_mcl':
-            self.localizer = MockCnnMclLocalizerEngine(self.olinMap, CLOSE_ENOUGH_METERS)
+            if LOCALIZER_MODEL == 'mock':
+                self.localizer = MockCnnMclLocalizerEngine(self.olinMap, CLOSE_ENOUGH_METERS)
+            else:
+                self.localizer = CnnMclLocalizerEngine(
+                    self.olinMap,
+                    CLOSE_ENOUGH_METERS,
+                    LOCALIZER_MODEL_PATH,
+                    show_mcl=SHOW_MCL,
+                    particle_count=MCL_PARTICLE_COUNT,
+                )
         else:
             self.localizer = OdomLocalizerEngine(self.olinMap, CLOSE_ENOUGH_METERS)
 
         print(f'Server listening on: {HOST} | {PORT} ...')
         print(f'Localizer mode: {LOCALIZER_MODE}, model: {LOCALIZER_MODEL}')
+        if LOCALIZER_MODEL_PATH:
+            print(f'Localizer model path: {LOCALIZER_MODEL_PATH}')
 
     def run_server(self):
         try:
@@ -64,6 +78,8 @@ class RobotServer():
 
                     result = self.localizer.localize(header['frame_id'], frame, odom)
                     send_result(conn, result)
+        except (ConnectionError, OSError, ValueError) as error:
+            print(f'Localizer client disconnected: {error}')
         finally:
             self.server_socket.close()
             if SHOW_IMAGES:
