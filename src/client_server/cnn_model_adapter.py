@@ -24,6 +24,18 @@ class CnnModelAdapter:
         self.last_latency_ms = None
         self.last_device = ''
 
+    def _device_names(self, device_type):
+        return [
+            device.name
+            for device in self.tf.config.list_physical_devices(device_type)
+        ]
+
+    def _logical_device_names(self, device_type):
+        return [
+            device.name
+            for device in self.tf.config.list_logical_devices(device_type)
+        ]
+
     def load(self):
         if self.model_loaded:
             return
@@ -115,6 +127,8 @@ class CnnModelAdapter:
             'sequence_target_length': self.sequence_length,
             'model_path': self.model_path,
             'tensorflow_version': self.tensorflow_version,
+            'gpu_devices': self._device_names('GPU'),
+            'logical_gpu_devices': self._logical_device_names('GPU'),
             'input_shape': self.input_shape,
             'output_shape': self.output_shape,
             'model_loaded': self.model_loaded,

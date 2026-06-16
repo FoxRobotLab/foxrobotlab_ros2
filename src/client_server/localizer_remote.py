@@ -60,7 +60,7 @@ class RemoteLocalizer:
         confidence = result.get('confidence', 0.0)
         self.gui.updateOdomList([odom[0], odom[1], odom[2], confidence])
         self.gui.updateCNode(result['node'])
-        fields = {}
+        fields = {'confidence': confidence}
         if 'cell' in result:
             fields['current_cell'] = result['cell']
         for key in (
@@ -72,6 +72,8 @@ class RemoteLocalizer:
             'best_pic_cells',
             'tensorflow_status',
             'tensorflow_version',
+            'gpu_devices',
+            'logical_gpu_devices',
             'cnn_device',
             'cnn_model',
             'cnn_model_loaded',

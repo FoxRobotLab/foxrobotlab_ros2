@@ -54,6 +54,7 @@ class UnifiedSeekerGUI:
         self.current_cell = tk.StringVar(value='Current cell: unknown')
         self.next_node = tk.StringVar(value='Next node: unknown')
         self.match_status = tk.StringVar(value='Match: unknown')
+        self.confidence = tk.StringVar(value='Confidence: unknown')
         self.target_distance = tk.StringVar(value='Target distance: unknown')
         self.turn_state = tk.StringVar(value='Turn: unknown')
         self.nav_type = tk.StringVar(value='Nav: unknown')
@@ -65,6 +66,7 @@ class UnifiedSeekerGUI:
         self.pic_locs = tk.StringVar(value='Image locs: unknown')
         self.tf_status = tk.StringVar(value='TensorFlow: unknown')
         self.tf_version = tk.StringVar(value='TF version: unknown')
+        self.gpu_devices = tk.StringVar(value='GPUs: unknown')
         self.cnn_device = tk.StringVar(value='CNN device: unknown')
         self.cnn_model = tk.StringVar(value='CNN model: unknown')
         self.cnn_model_loaded = tk.StringVar(value='Model loaded: unknown')
@@ -124,6 +126,7 @@ class UnifiedSeekerGUI:
                 self.current_cell,
                 self.next_node,
                 self.match_status,
+                self.confidence,
                 self.target_distance,
                 self.turn_state,
                 self.nav_type,
@@ -178,6 +181,7 @@ class UnifiedSeekerGUI:
             [
                 self.tf_status,
                 self.tf_version,
+                self.gpu_devices,
                 self.cnn_device,
                 self.cnn_model_loaded,
                 self.cnn_latency,
@@ -311,6 +315,8 @@ class UnifiedSeekerGUI:
             self.next_node.set(f"Next node: {fields['next_node']}")
         if 'match_status' in fields:
             self.match_status.set(f"Match: {fields['match_status']}")
+        if 'confidence' in fields:
+            self.confidence.set(f"Confidence: {float(fields['confidence']):.2f}")
         if 'target_distance' in fields:
             self.target_distance.set(f"Target distance: {float(fields['target_distance']):.2f}")
         if 'turn_state' in fields:
@@ -333,6 +339,8 @@ class UnifiedSeekerGUI:
             self.tf_status.set(f"TensorFlow: {fields['tensorflow_status']}")
         if 'tensorflow_version' in fields:
             self.tf_version.set(f"TF version: {fields['tensorflow_version']}")
+        if 'gpu_devices' in fields:
+            self.gpu_devices.set(f"GPUs: {self._format_devices(fields['gpu_devices'])}")
         if 'cnn_device' in fields:
             self.cnn_device.set(f"CNN device: {self._short_device(fields['cnn_device'])}")
         if 'cnn_model' in fields:
@@ -367,6 +375,13 @@ class UnifiedSeekerGUI:
         if marker in text:
             return text.split(marker)[-1]
         return text
+
+    def _format_devices(self, value):
+        if isinstance(value, (list, tuple)):
+            if not value:
+                return 'none'
+            return ', '.join(self._short_device(item) for item in value)
+        return self._short_device(value)
 
     def _connect_command_socket(self):
         if self.command_sock is not None:

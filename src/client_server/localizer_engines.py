@@ -164,6 +164,8 @@ class CnnMclLocalizerEngine:
             'best_pic_cells': prediction['top_cells'],
             'tensorflow_status': 'ok',
             'tensorflow_version': prediction['tensorflow_version'],
+            'gpu_devices': prediction['gpu_devices'],
+            'logical_gpu_devices': prediction['logical_gpu_devices'],
             'cnn_device': prediction['device'],
             'cnn_model': prediction['model_path'],
             'cnn_model_loaded': prediction['model_loaded'],

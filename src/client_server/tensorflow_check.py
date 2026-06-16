@@ -91,6 +91,8 @@ def _run_adapter_check(model_path):
     print(f"TensorFlow check: adapter_model_loaded={result['model_loaded']}")
     print(f"TensorFlow check: adapter_input_shape={result['input_shape']}")
     print(f"TensorFlow check: adapter_output_shape={result['output_shape']}")
+    print(f"TensorFlow check: adapter_gpu_devices={result['gpu_devices']}")
+    print(f"TensorFlow check: adapter_logical_gpu_devices={result['logical_gpu_devices']}")
     print(f"TensorFlow check: adapter_device={result['device']}")
     print(f"TensorFlow check: adapter_latency_ms={result['latency_ms']:.2f}")
     print(
