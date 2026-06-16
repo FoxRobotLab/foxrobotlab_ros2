@@ -162,6 +162,8 @@ class CnnMclLocalizerEngine:
             'best_pic_scores': match_scores,
             'best_pic_locs': match_locs,
             'best_pic_cells': prediction['top_cells'],
+            'predicted_heading': response_pose[2],
+            'heading_source': 'odom_yaw_fallback',
             'tensorflow_status': 'ok',
             'tensorflow_version': prediction['tensorflow_version'],
             'gpu_devices': prediction['gpu_devices'],

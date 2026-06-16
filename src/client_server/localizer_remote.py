@@ -70,6 +70,8 @@ class RemoteLocalizer:
             'best_pic_scores',
             'best_pic_locs',
             'best_pic_cells',
+            'predicted_heading',
+            'heading_source',
             'tensorflow_status',
             'tensorflow_version',
             'gpu_devices',

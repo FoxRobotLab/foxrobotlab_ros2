@@ -74,6 +74,8 @@ class UnifiedSeekerGUI:
         self.cnn_sequence = tk.StringVar(value='Sequence: unknown')
         self.cnn_cells = tk.StringVar(value='Top cells: unknown')
         self.cnn_scores = tk.StringVar(value='Top scores: unknown')
+        self.heading_prediction = tk.StringVar(value='Heading: unknown')
+        self.heading_source = tk.StringVar(value='Heading source: unknown')
         self.mcl_variance = tk.StringVar(value='MCL variance: unknown')
 
         self._build_layout()
@@ -188,6 +190,8 @@ class UnifiedSeekerGUI:
                 self.cnn_sequence,
                 self.cnn_cells,
                 self.cnn_scores,
+                self.heading_prediction,
+                self.heading_source,
                 self.mcl_variance,
                 self.cnn_model,
             ]
@@ -357,6 +361,10 @@ class UnifiedSeekerGUI:
             self.cnn_cells.set(f"Top cells: {self._format_sequence(fields['best_pic_cells'])}")
         if 'best_pic_scores' in fields:
             self.cnn_scores.set(f"Top scores: {self._format_sequence(fields['best_pic_scores'])}")
+        if 'predicted_heading' in fields:
+            self.heading_prediction.set(f"Heading: {float(fields['predicted_heading']):.2f}")
+        if 'heading_source' in fields:
+            self.heading_source.set(f"Heading source: {fields['heading_source']}")
         if 'mcl_variance' in fields:
             self.mcl_variance.set(f"MCL variance: {float(fields['mcl_variance']):.2f}")
         if 'log' in fields:
