@@ -64,6 +64,9 @@ class RemoteLocalizer:
         if 'cell' in result:
             fields['current_cell'] = result['cell']
         for key in (
+            'pose',
+            'odom_pose',
+            'continuity_pose',
             'localizer_mode',
             'nav_type',
             'mcl',
@@ -83,9 +86,14 @@ class RemoteLocalizer:
             'cnn_sequence_length',
             'cnn_sequence_target_length',
             'mcl_variance',
+            'correction_source',
+            'correction_weight',
+            'cnn_observation_used',
+            'cnn_observation_rejected',
         ):
             if key in result:
                 fields[key] = result[key]
+        fields['odom'] = odom
         if fields:
             self.gui._send(fields)
         self.gui.updateMatchStatus(result.get('localizer_mode', 'remote localizer'))

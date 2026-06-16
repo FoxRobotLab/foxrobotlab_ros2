@@ -1,5 +1,6 @@
 import os
 import sys
+import math
 
 FOXROBOTLAB_SRC = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if FOXROBOTLAB_SRC not in sys.path:
@@ -73,6 +74,14 @@ class MockCnnMclLocalizerEngine:
 
 
 class CnnMclLocalizerEngine:
+    MCL_VARIANCE_TRUST = 5.0
+    MCL_MAX_CORRECTION_METERS = 2.5
+    CNN_MIN_CONFIDENCE = 75.0
+    CNN_MIN_MARGIN = 15.0
+    CNN_MAX_CORRECTION_METERS = 3.0
+    CNN_MAX_BLEND = 0.35
+    MCL_MAX_BLEND = 0.65
+
     def __init__(
         self,
         olin_map,
@@ -128,8 +137,9 @@ class CnnMclLocalizerEngine:
         self.previous_odom_pose = odom_pose
         self.odom_score = max(0.01, self.odom_score - 0.1)
 
-        nav_type, response_pose, confidence = self._select_response(
-            odom_pose,
+        predicted_pose = self._continuous_pose_prediction(odom_pose, move_info)
+        nav_type, response_pose, confidence, correction_info = self._select_response(
+            predicted_pose,
             match_locs,
             match_scores,
             com_pose,
@@ -158,6 +168,12 @@ class CnnMclLocalizerEngine:
             'confidence': confidence,
             'localizer_mode': 'cnn_mcl',
             'nav_type': nav_type,
+            'odom_pose': list(odom_pose),
+            'continuity_pose': list(predicted_pose),
+            'correction_source': correction_info['source'],
+            'correction_weight': correction_info['weight'],
+            'cnn_observation_used': correction_info['cnn_used'],
+            'cnn_observation_rejected': correction_info['cnn_rejected'],
             'mcl': [com_pose[0], com_pose[1], com_pose[2], variance],
             'best_pic_scores': match_scores,
             'best_pic_locs': match_locs,
@@ -203,12 +219,93 @@ class CnnMclLocalizerEngine:
             locs.append((0.0, 0.0, yaw))
         return locs
 
-    def _select_response(self, odom_pose, match_locs, match_scores, com_pose, variance):
-        if variance < 5.0:
-            return 'MCL', com_pose, 100.0
-        if match_scores and match_scores[0] >= 5.0:
-            return 'CNN', match_locs[0], match_scores[0]
-        return 'ODOM', odom_pose, self.odom_score
+    def _continuous_pose_prediction(self, odom_pose, move_info):
+        if self.last_known_loc is None:
+            return odom_pose
+        return (
+            self.last_known_loc[0] + move_info[0],
+            self.last_known_loc[1] + move_info[1],
+            self._normalize_heading(self.last_known_loc[2] + move_info[2]),
+        )
+
+    def _select_response(self, predicted_pose, match_locs, match_scores, com_pose, variance):
+        correction_info = {
+            'source': 'odometry_continuity',
+            'weight': 0.0,
+            'cnn_used': False,
+            'cnn_rejected': '',
+        }
+
+        if self._mcl_is_reliable(predicted_pose, com_pose, variance):
+            weight = self._mcl_weight(variance)
+            corrected = self._blend_pose(predicted_pose, com_pose, weight)
+            correction_info.update({'source': 'mcl', 'weight': weight})
+            return 'MCL', corrected, 100.0, correction_info
+
+        cnn_ok, reject_reason = self._cnn_is_reliable(predicted_pose, match_locs, match_scores)
+        if cnn_ok:
+            weight = self._cnn_weight(match_scores)
+            corrected = self._blend_pose(predicted_pose, match_locs[0], weight)
+            correction_info.update({
+                'source': 'cnn_weighted_observation',
+                'weight': weight,
+                'cnn_used': True,
+            })
+            return 'CNN_CORRECTION', corrected, match_scores[0], correction_info
+
+        correction_info['cnn_rejected'] = reject_reason
+        return 'ODOM', predicted_pose, self.odom_score, correction_info
+
+    def _mcl_is_reliable(self, predicted_pose, com_pose, variance):
+        if variance >= self.MCL_VARIANCE_TRUST:
+            return False
+        return self._distance_2d(predicted_pose, com_pose) <= self.MCL_MAX_CORRECTION_METERS
+
+    def _cnn_is_reliable(self, predicted_pose, match_locs, match_scores):
+        if not match_locs or not match_scores:
+            return False, 'no_prediction'
+
+        best_score = match_scores[0]
+        second_score = match_scores[1] if len(match_scores) > 1 else 0.0
+        if best_score < self.CNN_MIN_CONFIDENCE:
+            return False, 'low_confidence'
+        if best_score - second_score < self.CNN_MIN_MARGIN:
+            return False, 'ambiguous_prediction'
+        if self._distance_2d(predicted_pose, match_locs[0]) > self.CNN_MAX_CORRECTION_METERS:
+            return False, 'too_far_from_odometry'
+        return True, ''
+
+    def _mcl_weight(self, variance):
+        trust = max(0.0, min(1.0, 1.0 - (variance / self.MCL_VARIANCE_TRUST)))
+        return min(self.MCL_MAX_BLEND, 0.25 + 0.40 * trust)
+
+    def _cnn_weight(self, match_scores):
+        best_score = match_scores[0]
+        second_score = match_scores[1] if len(match_scores) > 1 else 0.0
+        confidence = max(0.0, min(1.0, (best_score - self.CNN_MIN_CONFIDENCE) / 25.0))
+        margin = max(0.0, min(1.0, (best_score - second_score - self.CNN_MIN_MARGIN) / 35.0))
+        return min(self.CNN_MAX_BLEND, 0.10 + 0.25 * min(confidence, margin))
+
+    def _blend_pose(self, base_pose, observation_pose, weight):
+        weight = max(0.0, min(1.0, weight))
+        return (
+            base_pose[0] + (observation_pose[0] - base_pose[0]) * weight,
+            base_pose[1] + (observation_pose[1] - base_pose[1]) * weight,
+            self._blend_heading(base_pose[2], observation_pose[2], weight),
+        )
+
+    def _blend_heading(self, base_heading, observation_heading, weight):
+        delta = (observation_heading - base_heading + 180.0) % 360.0 - 180.0
+        return self._normalize_heading(base_heading + delta * weight)
+
+    def _normalize_heading(self, heading):
+        heading = heading % 360.0
+        if heading < 0:
+            heading += 360.0
+        return heading
+
+    def _distance_2d(self, pose_a, pose_b):
+        return math.hypot(pose_a[0] - pose_b[0], pose_a[1] - pose_b[1])
 
     def _odom_pose(self, odom):
         return (float(odom['x']), float(odom['y']), float(odom['yaw']))

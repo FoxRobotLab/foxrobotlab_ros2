@@ -13,6 +13,12 @@ FOXROBOTLAB_SRC = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if FOXROBOTLAB_SRC not in sys.path:
     sys.path.insert(0, FOXROBOTLAB_SRC)
 
+MATCH_SEEKER_SCRIPTS = os.path.join(FOXROBOTLAB_SRC, 'match_seeker', 'scripts')
+if MATCH_SEEKER_SCRIPTS not in sys.path:
+    sys.path.append(os.path.abspath(MATCH_SEEKER_SCRIPTS))
+
+import OlinWorldMap
+
 from client_server.protocol import recv_status, recv_video_frame, send_command
 
 
@@ -238,19 +244,30 @@ class MclVisualization(QtWidgets.QGroupBox):
     def __init__(self, parent=None):
         super().__init__('MCL', parent)
         self.values = {}
+        self.olin_map = OlinWorldMap.WorldMap()
+        self.pose_history = []
+        self.max_history = 120
+        self._pixmap = None
 
         layout = QtWidgets.QVBoxLayout(self)
-        layout.setContentsMargins(16, 22, 16, 16)
-        layout.setSpacing(12)
+        layout.setContentsMargins(12, 18, 12, 12)
+        layout.setSpacing(8)
 
         title = QtWidgets.QLabel('Localization Window')
         title.setObjectName('mclTitle')
         title.setAlignment(QtCore.Qt.AlignCenter)
         layout.addWidget(title)
 
+        self.map_label = QtWidgets.QLabel('Waiting for localization data')
+        self.map_label.setObjectName('mapCanvas')
+        self.map_label.setAlignment(QtCore.Qt.AlignCenter)
+        self.map_label.setMinimumSize(520, 330)
+        self.map_label.setScaledContents(False)
+        layout.addWidget(self.map_label, 1)
+
         grid = QtWidgets.QGridLayout()
         grid.setHorizontalSpacing(16)
-        grid.setVerticalSpacing(10)
+        grid.setVerticalSpacing(6)
         rows = [
             ('mcl_pose', 'Pose', 'unknown'),
             ('mcl_variance', 'Variance', 'unknown'),
@@ -271,11 +288,86 @@ class MclVisualization(QtWidgets.QGroupBox):
 
         grid.setColumnStretch(1, 1)
         layout.addLayout(grid)
-        layout.addStretch(1)
+        self.update_map()
 
     def set_value(self, key, value):
         if key in self.values:
             self.values[key].setText(str(value))
+
+    def update_pose(self, pose, odom_pose=None, cnn_locs=None, mcl_pose=None):
+        pose_tuple = self._coerce_pose(pose)
+        if pose_tuple is not None:
+            self.pose_history.append(pose_tuple)
+            self.pose_history = self.pose_history[-self.max_history:]
+
+        self.update_map(
+            odom_pose=self._coerce_pose(odom_pose),
+            cnn_locs=self._coerce_pose_list(cnn_locs),
+            mcl_pose=self._coerce_pose(mcl_pose),
+        )
+
+    def update_map(self, odom_pose=None, cnn_locs=None, mcl_pose=None):
+        self.olin_map.cleanMapImage(obstacles=True, cells=True, drawCellNum=False)
+
+        for index, pose in enumerate(self.pose_history):
+            age = index / max(1, len(self.pose_history) - 1)
+            color = (
+                int(180 - 80 * age),
+                int(140 - 100 * age),
+                int(220 - 160 * age),
+            )
+            self.olin_map.drawPose(pose, size=2, color=color, fill=True)
+
+        if cnn_locs:
+            for loc in cnn_locs[:3]:
+                self.olin_map.drawPose(loc, size=3, color=(255, 0, 255), fill=False)
+
+        if odom_pose is not None:
+            self.olin_map.drawPose(odom_pose, size=4, color=(0, 170, 255), fill=False)
+
+        if mcl_pose is not None:
+            self.olin_map.drawPose(mcl_pose, size=5, color=(0, 200, 0), fill=False)
+
+        if self.pose_history:
+            self.olin_map.drawPose(self.pose_history[-1], size=6, color=(0, 0, 255), fill=True)
+
+        self._pixmap = frame_to_pixmap(self.olin_map.currentMapImg)
+        self._update_scaled_pixmap()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._update_scaled_pixmap()
+
+    def _update_scaled_pixmap(self):
+        if self._pixmap is None:
+            return
+
+        scaled = self._pixmap.scaled(
+            self.map_label.size(),
+            QtCore.Qt.KeepAspectRatio,
+            QtCore.Qt.SmoothTransformation,
+        )
+        self.map_label.setPixmap(scaled)
+
+    def _coerce_pose(self, value):
+        if isinstance(value, dict):
+            value = (value.get('x'), value.get('y'), value.get('yaw'))
+        if not isinstance(value, (list, tuple)) or len(value) < 3:
+            return None
+        try:
+            return (float(value[0]), float(value[1]), float(value[2]))
+        except (TypeError, ValueError):
+            return None
+
+    def _coerce_pose_list(self, value):
+        if not isinstance(value, (list, tuple)):
+            return []
+        poses = []
+        for item in value:
+            pose = self._coerce_pose(item)
+            if pose is not None:
+                poses.append(pose)
+        return poses
 
 
 class UnifiedSeekerGUI(QtWidgets.QMainWindow):
@@ -394,6 +486,9 @@ class UnifiedSeekerGUI(QtWidgets.QMainWindow):
                 ('cnn_scores', 'Top scores', 'unknown'),
                 ('predicted_heading', 'Heading', 'unknown'),
                 ('heading_source', 'Heading source', 'unknown'),
+                ('correction_source', 'Correction', 'unknown'),
+                ('correction_weight', 'Correction weight', 'unknown'),
+                ('cnn_observation_rejected', 'CNN rejected', 'unknown'),
                 ('mcl_variance', 'MCL variance', 'unknown'),
                 ('cnn_model', 'CNN model', 'unknown'),
             ],
@@ -496,8 +591,12 @@ class UnifiedSeekerGUI(QtWidgets.QMainWindow):
                 color: #111612;
             }
             QLabel#mclTitle {
-                font-size: 22px;
+                font-size: 16px;
                 font-weight: 700;
+            }
+            QLabel#mapCanvas {
+                background: #f8f9f6;
+                border: 1px solid #a3a7a1;
             }
             QLineEdit {
                 background: #ffffff;
@@ -615,10 +714,23 @@ class UnifiedSeekerGUI(QtWidgets.QMainWindow):
             self.cnn_panel.set_value('predicted_heading', self._format_float(fields['predicted_heading'], 2))
         if 'heading_source' in fields:
             self.cnn_panel.set_value('heading_source', fields['heading_source'])
+        if 'correction_source' in fields:
+            self.cnn_panel.set_value('correction_source', fields['correction_source'])
+        if 'correction_weight' in fields:
+            self.cnn_panel.set_value('correction_weight', self._format_float(fields['correction_weight'], 2))
+        if 'cnn_observation_rejected' in fields:
+            self.cnn_panel.set_value('cnn_observation_rejected', fields['cnn_observation_rejected'] or 'no')
         if 'mcl_variance' in fields:
             value = self._format_float(fields['mcl_variance'], 2)
             self.cnn_panel.set_value('mcl_variance', value)
             self.mcl_panel.set_value('mcl_variance', value)
+        if {'pose', 'odom', 'best_pic_locs', 'mcl'} & set(fields):
+            self.mcl_panel.update_pose(
+                fields.get('pose'),
+                odom_pose=fields.get('odom'),
+                cnn_locs=fields.get('best_pic_locs'),
+                mcl_pose=fields.get('mcl'),
+            )
         if 'log' in fields:
             self._append_log(fields['log'])
 
