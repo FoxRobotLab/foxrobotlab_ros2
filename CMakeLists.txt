@@ -11,13 +11,20 @@ find_package(ament_cmake_python REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclpy REQUIRED)
 
-# include the following folders into the CMake
-install(DIRECTORY
-  launch
-  config
-  scripts
-  DESTINATION share/${PROJECT_NAME}
-)
+# include the following folders into the CMake when present
+set(FOXROBOTLAB_SHARE_DIRS)
+foreach(dir launch config scripts)
+  if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${dir}")
+    list(APPEND FOXROBOTLAB_SHARE_DIRS ${dir})
+  endif()
+endforeach()
+
+if(FOXROBOTLAB_SHARE_DIRS)
+  install(DIRECTORY
+    ${FOXROBOTLAB_SHARE_DIRS}
+    DESTINATION share/${PROJECT_NAME}
+  )
+endif()
 
 install(DIRECTORY
   src/match_seeker
