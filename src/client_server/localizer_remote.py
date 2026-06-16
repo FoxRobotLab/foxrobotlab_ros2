@@ -63,7 +63,23 @@ class RemoteLocalizer:
         fields = {}
         if 'cell' in result:
             fields['current_cell'] = result['cell']
-        for key in ('localizer_mode', 'nav_type', 'mcl', 'best_pic_scores', 'best_pic_locs'):
+        for key in (
+            'localizer_mode',
+            'nav_type',
+            'mcl',
+            'best_pic_scores',
+            'best_pic_locs',
+            'best_pic_cells',
+            'tensorflow_status',
+            'tensorflow_version',
+            'cnn_device',
+            'cnn_model',
+            'cnn_model_loaded',
+            'cnn_latency_ms',
+            'cnn_sequence_length',
+            'cnn_sequence_target_length',
+            'mcl_variance',
+        ):
             if key in result:
                 fields[key] = result[key]
         if fields:

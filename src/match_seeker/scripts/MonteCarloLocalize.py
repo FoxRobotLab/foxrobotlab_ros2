@@ -59,7 +59,7 @@ class monteCarloLoc(object):
             self.validPosList.append(newParticle)
 
 
-    def mclCycle(self, mclData, moveInfo, windowName = "MCL Display"):
+    def mclCycle(self, mclData, moveInfo, windowName = "MCL Display", show_map=True):
         """ Takes in important Localizer information and calls all relevant methods in the MCL"""
         self.currentData = mclData
 
@@ -82,13 +82,14 @@ class monteCarloLoc(object):
         if self.currentData["odomScore"] < 1 and var < 3.0:
             self.scatter()
 
-        self.olinMap.cleanMapImage(obstacles=True,cells=True,drawCellNum=True)
-        self.drawParticles(self.validPosList, (0, 0, 0), fill = False)      # draw set of particles  in black
-        self.drawParticles(matchCopies[1:], (255, 0, 255))   # draw particles for matched images in magenta
-        self.drawParticles(matchCopies[:1], (0, 170, 255))   # draw particle for odometry location in orange
-        self.drawParticles([self.centerParticle], (0, 255, 0))  # draw particle for center of mass in green
+        if show_map:
+            self.olinMap.cleanMapImage(obstacles=True,cells=True,drawCellNum=True)
+            self.drawParticles(self.validPosList, (0, 0, 0), fill = False)      # draw set of particles  in black
+            self.drawParticles(matchCopies[1:], (255, 0, 255))   # draw particles for matched images in magenta
+            self.drawParticles(matchCopies[:1], (0, 170, 255))   # draw particle for odometry location in orange
+            self.drawParticles([self.centerParticle], (0, 255, 0))  # draw particle for center of mass in green
 
-        self.olinMap.displayMap(windowName)
+            self.olinMap.displayMap(windowName)
 
         return self.centerParticle.getLoc(), var
 

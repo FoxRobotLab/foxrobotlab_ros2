@@ -3,21 +3,21 @@ localizer_server:
   port: 62027
   show_images: false
   mode: 'cnn_mcl'
-  model: 'mock'
+  model: 'lstm_cell'
+  cell_model_path: "src/foxrobotlab_ros2/src/match_seeker/res/models/newCellPredAdam224-74-1.26.keras"
+  show_mcl: false
+  mcl_particles: 250
 
 python_env:
-  # Enable this on the laptop when the localizer server needs TensorFlow/CNN/MCL.
-  enabled: false
-  # Runs a short TensorFlow import/GPU check as a separate process during laptop launch.
-  run_tensorflow_check: false
-  # Relative paths are resolved from the workspace root, not from src/.
+  enabled: true
   venv_path: ".venv"
   python_executable: ""
-  add_nvidia_library_path: true
-  disable_onednn_opts: true
-  limit_tensorflow_threads: true
-  # DO NOT enable this, this transfers gui processes to the venv.
   use_for_gui: false
+  env: {}
+
+tensorflow_check:
+  model_path: "src/foxrobotlab_ros2/src/match_seeker/res/models/newCellPredAdam224-74-1.26.keras"
+  run_model_predict: true
 
 video_stream:
   gui:

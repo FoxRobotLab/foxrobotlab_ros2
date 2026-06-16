@@ -63,6 +63,16 @@ class UnifiedSeekerGUI:
         self.turn_info = tk.StringVar(value='Turn info: unknown')
         self.pic_scores = tk.StringVar(value='Image scores: unknown')
         self.pic_locs = tk.StringVar(value='Image locs: unknown')
+        self.tf_status = tk.StringVar(value='TensorFlow: unknown')
+        self.tf_version = tk.StringVar(value='TF version: unknown')
+        self.cnn_device = tk.StringVar(value='CNN device: unknown')
+        self.cnn_model = tk.StringVar(value='CNN model: unknown')
+        self.cnn_model_loaded = tk.StringVar(value='Model loaded: unknown')
+        self.cnn_latency = tk.StringVar(value='CNN latency: unknown')
+        self.cnn_sequence = tk.StringVar(value='Sequence: unknown')
+        self.cnn_cells = tk.StringVar(value='Top cells: unknown')
+        self.cnn_scores = tk.StringVar(value='Top scores: unknown')
+        self.mcl_variance = tk.StringVar(value='MCL variance: unknown')
 
         self._build_layout()
 
@@ -162,9 +172,27 @@ class UnifiedSeekerGUI:
         ):
             ttk.Label(telemetry, textvariable=variable, wraplength=420).grid(row=idx, column=0, sticky='w', pady=2)
 
+        cnn = ttk.LabelFrame(side, text='CNN / TensorFlow', padding=8)
+        cnn.grid(row=3, column=0, sticky='ew', pady=(8, 0))
+        for idx, variable in enumerate(
+            [
+                self.tf_status,
+                self.tf_version,
+                self.cnn_device,
+                self.cnn_model_loaded,
+                self.cnn_latency,
+                self.cnn_sequence,
+                self.cnn_cells,
+                self.cnn_scores,
+                self.mcl_variance,
+                self.cnn_model,
+            ]
+        ):
+            ttk.Label(cnn, textvariable=variable, wraplength=420).grid(row=idx, column=0, sticky='w', pady=2)
+
         log_frame = ttk.LabelFrame(side, text='Log', padding=8)
-        log_frame.grid(row=3, column=0, sticky='nsew', pady=(8, 0))
-        side.rowconfigure(3, weight=1)
+        log_frame.grid(row=4, column=0, sticky='nsew', pady=(8, 0))
+        side.rowconfigure(4, weight=1)
         self.log_text = tk.Text(log_frame, height=10, wrap='word')
         self.log_text.pack(fill='both', expand=True)
         self._append_log('Unified GUI ready')
@@ -301,6 +329,28 @@ class UnifiedSeekerGUI:
             self.pic_scores.set(f"Image scores: {self._format_sequence(fields['best_pic_scores'])}")
         if 'best_pic_locs' in fields:
             self.pic_locs.set(f"Image locs: {self._format_sequence(fields['best_pic_locs'])}")
+        if 'tensorflow_status' in fields:
+            self.tf_status.set(f"TensorFlow: {fields['tensorflow_status']}")
+        if 'tensorflow_version' in fields:
+            self.tf_version.set(f"TF version: {fields['tensorflow_version']}")
+        if 'cnn_device' in fields:
+            self.cnn_device.set(f"CNN device: {self._short_device(fields['cnn_device'])}")
+        if 'cnn_model' in fields:
+            self.cnn_model.set(f"CNN model: {os.path.basename(str(fields['cnn_model']))}")
+        if 'cnn_model_loaded' in fields:
+            self.cnn_model_loaded.set(f"Model loaded: {fields['cnn_model_loaded']}")
+        if 'cnn_latency_ms' in fields:
+            self.cnn_latency.set(f"CNN latency: {float(fields['cnn_latency_ms']):.1f} ms")
+        if 'cnn_sequence_length' in fields:
+            current = fields['cnn_sequence_length']
+            target = fields.get('cnn_sequence_target_length', '?')
+            self.cnn_sequence.set(f"Sequence: {current}/{target}")
+        if 'best_pic_cells' in fields:
+            self.cnn_cells.set(f"Top cells: {self._format_sequence(fields['best_pic_cells'])}")
+        if 'best_pic_scores' in fields:
+            self.cnn_scores.set(f"Top scores: {self._format_sequence(fields['best_pic_scores'])}")
+        if 'mcl_variance' in fields:
+            self.mcl_variance.set(f"MCL variance: {float(fields['mcl_variance']):.2f}")
         if 'log' in fields:
             self._append_log(fields['log'])
 
@@ -310,6 +360,13 @@ class UnifiedSeekerGUI:
         if isinstance(value, float):
             return f'{value:.2f}'
         return str(value)
+
+    def _short_device(self, value):
+        text = str(value)
+        marker = '/device:'
+        if marker in text:
+            return text.split(marker)[-1]
+        return text
 
     def _connect_command_socket(self):
         if self.command_sock is not None:
