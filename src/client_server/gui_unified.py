@@ -3,6 +3,7 @@
 import os
 import socket
 import sys
+import threading
 import time
 
 import cv2
@@ -29,10 +30,10 @@ PLANNER_STATUS_PORT = int(os.environ.get('FOX_GUI_STATUS_SERVER_PORT', '62029'))
 PLANNER_COMMAND_IP = os.environ.get('FOX_GUI_COMMAND_SERVER_IP', '10.22.21.57')
 PLANNER_COMMAND_PORT = int(os.environ.get('FOX_GUI_COMMAND_SERVER_PORT', '62030'))
 FPS_REPORT_PERIOD_SECONDS = float(os.environ.get('FOX_VIDEO_FPS_REPORT_PERIOD', '2.0'))
+GUI_REFRESH_MS = int(os.environ.get('FOX_GUI_REFRESH_MS', '33'))
 
 
 class VideoReceiver(QtCore.QThread):
-    frame_received = QtCore.pyqtSignal(str, object)
     status_changed = QtCore.pyqtSignal(str)
     fps_changed = QtCore.pyqtSignal(str)
     log_message = QtCore.pyqtSignal(str)
@@ -44,6 +45,8 @@ class VideoReceiver(QtCore.QThread):
         self._client_socket = None
         self._frame_count = 0
         self._last_report_time = time.time()
+        self._latest_frames = {}
+        self._latest_frames_lock = threading.Lock()
 
     def run(self):
         while self._running:
@@ -75,7 +78,7 @@ class VideoReceiver(QtCore.QThread):
                             except socket.timeout:
                                 continue
                             stream_name = header['stream']
-                            self.frame_received.emit(stream_name, frame)
+                            self._store_latest_frame(stream_name, frame)
                             self._report_fps()
 
             except (ConnectionError, OSError, ValueError) as error:
@@ -95,6 +98,16 @@ class VideoReceiver(QtCore.QThread):
                     sock.close()
                 except OSError:
                     pass
+
+    def take_latest_frames(self):
+        with self._latest_frames_lock:
+            frames = self._latest_frames
+            self._latest_frames = {}
+        return frames
+
+    def _store_latest_frame(self, stream_name, frame):
+        with self._latest_frames_lock:
+            self._latest_frames[stream_name] = frame
 
     def _report_fps(self):
         self._frame_count += 1
@@ -503,6 +516,8 @@ class UnifiedSeekerGUI(QtWidgets.QMainWindow):
         self.latest_fields = {}
         self._last_log_signatures = {}
         self._last_odom_log_time = 0.0
+        self.video_refresh_timer = QtCore.QTimer(self)
+        self.video_refresh_timer.timeout.connect(self._display_latest_frames)
 
         self.setWindowTitle('Seeker')
         self.resize(1580, 930)
@@ -775,16 +790,23 @@ class UnifiedSeekerGUI(QtWidgets.QMainWindow):
 
     def _start_workers(self):
         self.video_thread = VideoReceiver(self)
-        self.video_thread.frame_received.connect(self._set_frame)
         self.video_thread.status_changed.connect(self.video_status_label.setText)
         self.video_thread.fps_changed.connect(self.fps_label.setText)
         self.video_thread.log_message.connect(self._append_log)
         self.video_thread.start()
+        self.video_refresh_timer.start(GUI_REFRESH_MS)
 
         self.status_thread = PlannerStatusReceiver(self)
         self.status_thread.status_received.connect(self._apply_planner_status)
         self.status_thread.log_message.connect(self._append_log)
         self.status_thread.start()
+
+    def _display_latest_frames(self):
+        if self.video_thread is None:
+            return
+
+        for stream_name, frame in self.video_thread.take_latest_frames().items():
+            self._set_frame(stream_name, frame)
 
     def _set_frame(self, stream_name, frame):
         if stream_name == 'camera':
@@ -1000,6 +1022,8 @@ class UnifiedSeekerGUI(QtWidgets.QMainWindow):
         event.accept()
 
     def _shutdown(self):
+        self.video_refresh_timer.stop()
+
         for thread in (self.video_thread, self.status_thread):
             if thread is not None:
                 thread.stop()
