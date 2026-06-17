@@ -51,6 +51,8 @@ class OdomLocalizerEngine:
 
 
 class MockCnnMclLocalizerEngine:
+    GUI_PARTICLE_LIMIT = 250
+
     def __init__(self, olin_map, close_enough):
         self.olin_map = olin_map
         self.close_enough = close_enough
@@ -60,17 +62,39 @@ class MockCnnMclLocalizerEngine:
         result = self.odom_engine.localize(frame_id, frame, odom)
         pose = result['pose']
         match_loc = (pose['x'], pose['y'], pose['yaw'])
+        cell = result['cell']
+        cells = [cell, cell, cell]
 
         result.update({
             'localizer_mode': 'cnn_mcl_mock',
             'nav_type': 'MCL',
             'mcl': [pose['x'], pose['y'], pose['yaw'], 0.0],
+            'mcl_variance': 0.0,
+            'mcl_particles': self._mock_particles(match_loc),
             'best_pic_scores': [95.0, 40.0, 15.0],
             'best_pic_locs': [match_loc, match_loc, match_loc],
+            'best_pic_cells': cells,
+            'tensorflow_status': 'mock',
+            'cnn_model': 'mock',
+            'cnn_model_loaded': False,
+            'cnn_observation_used': False,
+            'cnn_observation_rejected': '',
+            'correction_source': 'mock_mcl',
+            'correction_weight': 0.0,
             'confidence': 95.0,
         })
 
         return result
+
+    def _mock_particles(self, pose):
+        particles = []
+        offsets = (-0.45, -0.30, -0.15, 0.0, 0.15, 0.30, 0.45)
+        for dx in offsets:
+            for dy in offsets:
+                if len(particles) >= self.GUI_PARTICLE_LIMIT:
+                    return particles
+                particles.append([pose[0] + dx, pose[1] + dy, pose[2]])
+        return particles
 
 
 class CnnMclLocalizerEngine:
@@ -114,6 +138,11 @@ class CnnMclLocalizerEngine:
                 'tensorflow_status': f'error: {error}',
                 'cnn_model_loaded': self.cnn.model_loaded,
                 'cnn_model': self.cnn.model_path,
+                'mcl_particles': self._particle_locs(),
+                'cnn_observation_used': False,
+                'cnn_observation_rejected': str(error),
+                'correction_source': 'odometry_fallback_after_error',
+                'correction_weight': 0.0,
             })
             return result
 

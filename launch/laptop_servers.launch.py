@@ -75,7 +75,7 @@ def generate_launch_description():
                     'FOX_LOCALIZER_SERVER_HOST': _as_env(localizer_config['host']),
                     'FOX_LOCALIZER_SERVER_PORT': _as_env(localizer_config['port']),
                     'FOX_LOCALIZER_SHOW_IMAGES': _as_env(localizer_config['show_images']),
-                    'FOX_LOCALIZER_MODE': _as_env(localizer_config.get('mode', 'odom')),
+                    'FOX_LOCALIZER_MODE': _as_env(localizer_config.get('mode', 'cnn_mcl')),
                     'FOX_LOCALIZER_MODEL': _as_env(localizer_config.get('model', 'mock')),
                     'FOX_LOCALIZER_MODEL_PATH': _resolve_path(
                         package_dir,

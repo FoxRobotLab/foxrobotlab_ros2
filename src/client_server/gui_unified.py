@@ -821,11 +821,7 @@ class UnifiedSeekerGUI(QtWidgets.QMainWindow):
         if 'cnn_model' in fields:
             self.robot_panel.set_value('cnn_model', os.path.basename(str(fields['cnn_model'])))
 
-        nav_state = self.latest_fields.get(
-            'nav_type',
-            self.latest_fields.get('localizer_mode', self.latest_fields.get('match_status', 'unknown')),
-        )
-        self.robot_panel.set_value('nav_state', nav_state)
+        self.robot_panel.set_value('nav_state', self._nav_state_text())
         self.robot_panel.set_value('current_yaw', self._current_yaw_text())
 
     def _apply_camera_overlay(self):
@@ -867,11 +863,31 @@ class UnifiedSeekerGUI(QtWidgets.QMainWindow):
             return self._format_float(odom[2], 2)
         return 'unknown'
 
+    def _nav_state_text(self):
+        mode = self.latest_fields.get('localizer_mode')
+        source = self.latest_fields.get('nav_type')
+        legacy = self.latest_fields.get('legacy_nav_type')
+        match = self.latest_fields.get('match_status')
+
+        if mode and source:
+            return f'{mode} / {source}'
+        if mode:
+            return str(mode)
+        if source:
+            return str(source)
+        if legacy:
+            return str(legacy)
+        return str(match or 'unknown')
+
     def _log_status_updates(self, fields):
         if 'best_pic_cells' in fields or 'best_pic_scores' in fields:
             cells = self.latest_fields.get('best_pic_cells')
             scores = self.latest_fields.get('best_pic_scores')
             self._append_log_once('cnn_prediction', f'CNN prediction: cells={cells} scores={scores}')
+
+        tf_status = fields.get('tensorflow_status')
+        if tf_status and str(tf_status).lower().startswith('error'):
+            self._append_log_once('tensorflow_error', f'TensorFlow/CNN status: {tf_status}')
 
         rejection = fields.get('cnn_observation_rejected')
         if rejection:
@@ -890,10 +906,16 @@ class UnifiedSeekerGUI(QtWidgets.QMainWindow):
                 self._last_odom_log_time = now
                 self._append_log_once('odom_update', f"Odometry update: {self._format_sequence(fields['odom'])}")
 
-        if 'nav_type' in fields or 'match_status' in fields or 'next_node' in fields:
+        if (
+            'nav_type' in fields
+            or 'legacy_nav_type' in fields
+            or 'localizer_mode' in fields
+            or 'match_status' in fields
+            or 'next_node' in fields
+        ):
             self._append_log_once(
                 'nav_update',
-                f"Navigation update: state={self.latest_fields.get('nav_type', self.latest_fields.get('match_status', 'unknown'))} "
+                f"Navigation update: state={self._nav_state_text()} "
                 f"next={self.latest_fields.get('next_node', 'unknown')}",
             )
 

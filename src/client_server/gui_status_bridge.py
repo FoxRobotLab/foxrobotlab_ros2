@@ -227,7 +227,7 @@ class GuiStatusBridge:
         return self.legacy_gui.updatePicConf(scores)
 
     def updateNavType(self, nav_type):
-        self._send({'nav_type': nav_type})
+        self._send({'legacy_nav_type': nav_type})
         return self.legacy_gui.updateNavType(nav_type)
 
     def navigatingMode(self):
