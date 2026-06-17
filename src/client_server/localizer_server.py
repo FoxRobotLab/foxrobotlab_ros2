@@ -68,8 +68,6 @@ class RobotServer():
                 while True:
                     header, frame = recv_frame(conn)
                     odom = header['odom']
-                    
-                    print(f"Frame {header['frame_id']} | Odom {odom}")
 
                     if SHOW_IMAGES:
                         cv2.imshow('Localizer', frame)

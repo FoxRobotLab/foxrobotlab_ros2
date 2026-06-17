@@ -266,30 +266,6 @@ class MclVisualization(QtWidgets.QGroupBox):
         self.map_label.setMinimumSize(520, 330)
         self.map_label.setScaledContents(False)
         layout.addWidget(self.map_label, 1)
-
-        grid = QtWidgets.QGridLayout()
-        grid.setHorizontalSpacing(16)
-        grid.setVerticalSpacing(6)
-        rows = [
-            ('mcl_pose', 'Pose', 'unknown'),
-            ('mcl_variance', 'Variance', 'unknown'),
-            ('nav_type', 'Nav', 'unknown'),
-            ('confidence', 'Confidence', 'unknown'),
-            ('current_node', 'Node', 'unknown'),
-            ('current_cell', 'Cell', 'unknown'),
-        ]
-        for row, (key, label, initial) in enumerate(rows):
-            name_label = QtWidgets.QLabel(label)
-            name_label.setObjectName('fieldName')
-            value_label = QtWidgets.QLabel(initial)
-            value_label.setWordWrap(True)
-            value_label.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
-            grid.addWidget(name_label, row, 0, QtCore.Qt.AlignTop)
-            grid.addWidget(value_label, row, 1)
-            self.values[key] = value_label
-
-        grid.setColumnStretch(1, 1)
-        layout.addLayout(grid)
         self.update_map()
 
     def set_value(self, key, value):
