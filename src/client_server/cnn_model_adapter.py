@@ -3,6 +3,34 @@ import time
 from collections import deque
 
 
+FOXROBOTLAB_SRC = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+MATCH_SEEKER_SCRIPTS = os.path.join(FOXROBOTLAB_SRC, 'match_seeker', 'scripts')
+MATCH_SEEKER_MODELS = os.path.join(FOXROBOTLAB_SRC, 'match_seeker', 'res', 'models')
+
+
+def resolve_model_path(model_path):
+    raw_path = str(model_path or '').strip()
+    if not raw_path:
+        return raw_path
+
+    candidates = [raw_path]
+    if not os.path.isabs(raw_path):
+        candidates.extend([
+            os.path.abspath(raw_path),
+            os.path.join(FOXROBOTLAB_SRC, raw_path),
+        ])
+
+    basename = os.path.basename(raw_path)
+    if basename:
+        candidates.append(os.path.join(MATCH_SEEKER_MODELS, basename))
+
+    for candidate in candidates:
+        candidate = os.path.abspath(candidate)
+        if os.path.exists(candidate):
+            return candidate
+    return os.path.abspath(raw_path)
+
+
 class CnnModelAdapter:
     def __init__(
         self,
@@ -11,7 +39,7 @@ class CnnModelAdapter:
         image_size=224,
         top_k=3,
     ):
-        self.model_path = os.path.abspath(model_path)
+        self.model_path = resolve_model_path(model_path)
         self.sequence_length = int(sequence_length)
         self.image_size = int(image_size)
         self.top_k = int(top_k)

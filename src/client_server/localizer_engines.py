@@ -131,16 +131,17 @@ class CnnMclLocalizerEngine:
         try:
             return self._localize_cnn_mcl(frame_id, frame, odom_pose)
         except Exception as error:
+            error_text = f'{type(error).__name__}: {error}'
             result = self.odom_engine.localize(frame_id, frame, odom)
             result.update({
                 'localizer_mode': 'cnn_mcl_error',
                 'nav_type': 'ODOM',
-                'tensorflow_status': f'error: {error}',
+                'tensorflow_status': f'error: {error_text}',
                 'cnn_model_loaded': self.cnn.model_loaded,
                 'cnn_model': self.cnn.model_path,
                 'mcl_particles': self._particle_locs(),
                 'cnn_observation_used': False,
-                'cnn_observation_rejected': str(error),
+                'cnn_observation_rejected': error_text,
                 'correction_source': 'odometry_fallback_after_error',
                 'correction_weight': 0.0,
             })
