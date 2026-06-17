@@ -81,6 +81,7 @@ class CnnMclLocalizerEngine:
     CNN_MAX_CORRECTION_METERS = 3.0
     CNN_MAX_BLEND = 0.35
     MCL_MAX_BLEND = 0.65
+    GUI_PARTICLE_LIMIT = 500
 
     def __init__(
         self,
@@ -175,6 +176,7 @@ class CnnMclLocalizerEngine:
             'cnn_observation_used': correction_info['cnn_used'],
             'cnn_observation_rejected': correction_info['cnn_rejected'],
             'mcl': [com_pose[0], com_pose[1], com_pose[2], variance],
+            'mcl_particles': self._particle_locs(),
             'best_pic_scores': match_scores,
             'best_pic_locs': match_locs,
             'best_pic_cells': prediction['top_cells'],
@@ -306,6 +308,12 @@ class CnnMclLocalizerEngine:
 
     def _distance_2d(self, pose_a, pose_b):
         return math.hypot(pose_a[0] - pose_b[0], pose_a[1] - pose_b[1])
+
+    def _particle_locs(self):
+        if self.mcl is None:
+            return []
+        particles = self.mcl.validPosList[:self.GUI_PARTICLE_LIMIT]
+        return [list(particle.getLoc()) for particle in particles]
 
     def _odom_pose(self, odom):
         return (float(odom['x']), float(odom['y']), float(odom['yaw']))

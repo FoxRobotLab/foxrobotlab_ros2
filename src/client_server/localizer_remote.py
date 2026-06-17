@@ -70,6 +70,7 @@ class RemoteLocalizer:
             'localizer_mode',
             'nav_type',
             'mcl',
+            'mcl_particles',
             'best_pic_scores',
             'best_pic_locs',
             'best_pic_cells',

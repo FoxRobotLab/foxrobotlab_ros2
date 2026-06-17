@@ -243,9 +243,11 @@ class FieldPanel(QtWidgets.QGroupBox):
 class MclVisualization(QtWidgets.QGroupBox):
     def __init__(self, parent=None):
         super().__init__('MCL', parent)
+        self.setObjectName('mclPanel')
         self.values = {}
         self.olin_map = OlinWorldMap.WorldMap()
         self.pose_history = []
+        self.mcl_particles = []
         self.max_history = 120
         self._pixmap = None
 
@@ -294,11 +296,14 @@ class MclVisualization(QtWidgets.QGroupBox):
         if key in self.values:
             self.values[key].setText(str(value))
 
-    def update_pose(self, pose, odom_pose=None, cnn_locs=None, mcl_pose=None):
+    def update_pose(self, pose, odom_pose=None, cnn_locs=None, mcl_pose=None, mcl_particles=None):
         pose_tuple = self._coerce_pose(pose)
         if pose_tuple is not None:
             self.pose_history.append(pose_tuple)
             self.pose_history = self.pose_history[-self.max_history:]
+
+        if mcl_particles is not None:
+            self.mcl_particles = self._coerce_pose_list(mcl_particles)
 
         self.update_map(
             odom_pose=self._coerce_pose(odom_pose),
@@ -309,13 +314,13 @@ class MclVisualization(QtWidgets.QGroupBox):
     def update_map(self, odom_pose=None, cnn_locs=None, mcl_pose=None):
         self.olin_map.cleanMapImage(obstacles=True, cells=True, drawCellNum=False)
 
+        for particle in self.mcl_particles:
+            self.olin_map.drawPose(particle, size=1, color=(75, 75, 75), fill=True)
+
         for index, pose in enumerate(self.pose_history):
             age = index / max(1, len(self.pose_history) - 1)
-            color = (
-                int(180 - 80 * age),
-                int(140 - 100 * age),
-                int(220 - 160 * age),
-            )
+            trail_value = int(150 - 90 * age)
+            color = (trail_value, trail_value, trail_value)
             self.olin_map.drawPose(pose, size=2, color=color, fill=True)
 
         if cnn_locs:
@@ -329,7 +334,9 @@ class MclVisualization(QtWidgets.QGroupBox):
             self.olin_map.drawPose(mcl_pose, size=5, color=(0, 200, 0), fill=False)
 
         if self.pose_history:
-            self.olin_map.drawPose(self.pose_history[-1], size=6, color=(0, 0, 255), fill=True)
+            current_pose = self.pose_history[-1]
+            self.olin_map.drawPose(current_pose, size=9, color=(0, 0, 0), fill=False)
+            self.olin_map.drawPose(current_pose, size=7, color=(0, 0, 255), fill=True)
 
         self._pixmap = frame_to_pixmap(self.olin_map.currentMapImg)
         self._update_scaled_pixmap()
@@ -347,6 +354,8 @@ class MclVisualization(QtWidgets.QGroupBox):
             QtCore.Qt.KeepAspectRatio,
             QtCore.Qt.SmoothTransformation,
         )
+        self.map_label.clear()
+        self.map_label.setText('')
         self.map_label.setPixmap(scaled)
 
     def _coerce_pose(self, value):
@@ -590,13 +599,26 @@ class UnifiedSeekerGUI(QtWidgets.QMainWindow):
             QLabel#fieldValue {
                 color: #111612;
             }
+            QGroupBox#mclPanel {
+                background: #4b514d;
+                border: 1px solid #252a27;
+                color: #f6f8f3;
+            }
+            QGroupBox#mclPanel::title {
+                color: #f6f8f3;
+            }
+            QGroupBox#mclPanel QLabel#fieldName,
+            QGroupBox#mclPanel QLabel#fieldValue,
+            QGroupBox#mclPanel QLabel#mclTitle {
+                color: #f6f8f3;
+            }
             QLabel#mclTitle {
                 font-size: 16px;
                 font-weight: 700;
             }
             QLabel#mapCanvas {
                 background: #f8f9f6;
-                border: 1px solid #a3a7a1;
+                border: 2px solid #262b28;
             }
             QLineEdit {
                 background: #ffffff;
@@ -724,12 +746,13 @@ class UnifiedSeekerGUI(QtWidgets.QMainWindow):
             value = self._format_float(fields['mcl_variance'], 2)
             self.cnn_panel.set_value('mcl_variance', value)
             self.mcl_panel.set_value('mcl_variance', value)
-        if {'pose', 'odom', 'best_pic_locs', 'mcl'} & set(fields):
+        if {'pose', 'odom', 'best_pic_locs', 'mcl', 'mcl_particles'} & set(fields):
             self.mcl_panel.update_pose(
                 fields.get('pose'),
                 odom_pose=fields.get('odom'),
                 cnn_locs=fields.get('best_pic_locs'),
                 mcl_pose=fields.get('mcl'),
+                mcl_particles=fields.get('mcl_particles'),
             )
         if 'log' in fields:
             self._append_log(fields['log'])
