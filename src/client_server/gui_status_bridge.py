@@ -32,6 +32,7 @@ class GuiStatusBridge:
         self.command_queue = queue.Queue()
         self.pending_start = None
         self.pending_goal = None
+        self._pending_lock = threading.Lock()
         self.command_running = False
 
         if not enabled:
@@ -109,10 +110,11 @@ class GuiStatusBridge:
         fields = payload.get('fields', {})
 
         if command in ('set_start', 'set_goal'):
-            if command == 'set_start':
-                self.pending_start = fields
-            else:
-                self.pending_goal = fields
+            with self._pending_lock:
+                if command == 'set_start':
+                    self.pending_start = fields
+                else:
+                    self.pending_goal = fields
             self.command_queue.put(payload)
             self._send({'log': f'Received {command}: {fields}'})
         elif command == 'pause_motors':
@@ -150,18 +152,26 @@ class GuiStatusBridge:
         if not self.command_enabled:
             return self.legacy_gui.inputStartLoc()
 
-        if self.pending_start is None:
-            self.pending_start = self._wait_for_command('set_start')
-        return str(self.pending_start.get('location', ''))
+        with self._pending_lock:
+            pending_start = self.pending_start
+        if pending_start is None:
+            pending_start = self._wait_for_command('set_start')
+            with self._pending_lock:
+                self.pending_start = pending_start
+        return str(pending_start.get('location', ''))
 
     def inputStartYaw(self):
         if not self.command_enabled:
             return self.legacy_gui.inputStartYaw()
 
-        if self.pending_start is None:
-            self.pending_start = self._wait_for_command('set_start')
-        yaw = str(self.pending_start.get('yaw', ''))
-        self.pending_start = None
+        with self._pending_lock:
+            pending_start = self.pending_start
+        if pending_start is None:
+            pending_start = self._wait_for_command('set_start')
+        yaw = str(pending_start.get('yaw', ''))
+        with self._pending_lock:
+            if self.pending_start is pending_start:
+                self.pending_start = None
         return yaw
 
     def popupDest(self):
@@ -176,11 +186,27 @@ class GuiStatusBridge:
         if not self.command_enabled:
             return self.legacy_gui.inputDes()
 
-        if self.pending_goal is None:
-            self.pending_goal = self._wait_for_command('set_goal')
-        destination = str(self.pending_goal.get('destination', ''))
-        self.pending_goal = None
+        with self._pending_lock:
+            pending_goal = self.pending_goal
+        if pending_goal is None:
+            pending_goal = self._wait_for_command('set_goal')
+        destination = str(pending_goal.get('destination', ''))
+        with self._pending_lock:
+            if self.pending_goal is pending_goal:
+                self.pending_goal = None
         return destination
+
+    def popPendingStart(self):
+        with self._pending_lock:
+            fields = self.pending_start
+            self.pending_start = None
+        return fields
+
+    def popPendingGoal(self):
+        with self._pending_lock:
+            fields = self.pending_goal
+            self.pending_goal = None
+        return fields
 
     def updateNextNode(self, node):
         self._send({'next_node': node})
@@ -227,7 +253,7 @@ class GuiStatusBridge:
         return self.legacy_gui.updatePicConf(scores)
 
     def updateNavType(self, nav_type):
-        self._send({'nav_type': nav_type})
+        self._send({'legacy_nav_type': nav_type})
         return self.legacy_gui.updateNavType(nav_type)
 
     def navigatingMode(self):

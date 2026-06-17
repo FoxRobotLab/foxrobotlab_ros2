@@ -26,7 +26,7 @@ HOST = os.environ.get('FOX_LOCALIZER_SERVER_HOST', '0.0.0.0')
 PORT = int(os.environ.get('FOX_LOCALIZER_SERVER_PORT', '62027'))
 SHOW_IMAGES = os.environ.get('FOX_LOCALIZER_SHOW_IMAGES', '0') == '1'
 CLOSE_ENOUGH_METERS = float(os.environ.get('FOX_LOCALIZER_CLOSE_ENOUGH', '0.7'))
-LOCALIZER_MODE = os.environ.get('FOX_LOCALIZER_MODE', 'odom')
+LOCALIZER_MODE = os.environ.get('FOX_LOCALIZER_MODE', 'cnn_mcl')
 LOCALIZER_MODEL = os.environ.get('FOX_LOCALIZER_MODEL', 'mock')
 LOCALIZER_MODEL_PATH = os.environ.get('FOX_LOCALIZER_MODEL_PATH', '')
 SHOW_MCL = os.environ.get('FOX_LOCALIZER_SHOW_MCL', '0') == '1'
@@ -68,8 +68,6 @@ class RobotServer():
                 while True:
                     header, frame = recv_frame(conn)
                     odom = header['odom']
-                    
-                    print(f"Frame {header['frame_id']} | Odom {odom}")
 
                     if SHOW_IMAGES:
                         cv2.imshow('Localizer', frame)

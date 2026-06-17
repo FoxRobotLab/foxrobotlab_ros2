@@ -47,13 +47,13 @@ class PathLocation(object):
             self.logger.log("The total path traveled is: " + str(self.prevPath))
         else:
             self.goalPath = self.olinMap.getShortestPath(nodeNum, self.destination)
-            print("got shortest path")
+            self.logger.log("Got shortest path")
             self.targetAngle = self.nextAngle()
 
 
     def nextAngle(self,):
         currentNode, nextNode = self.goalPath[0], self.goalPath[1]
-        print("GOAl PATH: " + str(self.goalPath))
+        self.logger.log("Goal path: " + str(self.goalPath))
         probAngle = self.olinMap.calcAngle(currentNode, nextNode)
         self.logger.log("Turning from node " + str(currentNode) + " to node " + str(nextNode))
         return probAngle
