@@ -174,6 +174,7 @@ class ImagePanel(QtWidgets.QFrame):
     def __init__(self, title, placeholder, parent=None):
         super().__init__(parent)
         self._pixmap = None
+        self._overlay_text = ''
         self.setObjectName('imagePanel')
         self.setMinimumSize(260, 220)
 
@@ -196,6 +197,10 @@ class ImagePanel(QtWidgets.QFrame):
         self._pixmap = frame_to_pixmap(frame)
         self._update_scaled_pixmap()
 
+    def set_overlay_text(self, text):
+        self._overlay_text = str(text or '')
+        self._update_scaled_pixmap()
+
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self._update_scaled_pixmap()
@@ -209,6 +214,24 @@ class ImagePanel(QtWidgets.QFrame):
             QtCore.Qt.KeepAspectRatio,
             QtCore.Qt.SmoothTransformation,
         )
+        if self._overlay_text:
+            scaled = QtGui.QPixmap(scaled)
+            painter = QtGui.QPainter(scaled)
+            painter.setRenderHint(QtGui.QPainter.Antialiasing)
+            font = painter.font()
+            font.setPointSize(11)
+            font.setBold(True)
+            painter.setFont(font)
+
+            metrics = QtGui.QFontMetrics(font)
+            text_width = metrics.horizontalAdvance(self._overlay_text)
+            rect = QtCore.QRect(10, 10, text_width + 20, metrics.height() + 12)
+            painter.setPen(QtCore.Qt.NoPen)
+            painter.setBrush(QtGui.QColor(20, 24, 22, 210))
+            painter.drawRoundedRect(rect, 3, 3)
+            painter.setPen(QtGui.QColor(255, 255, 255))
+            painter.drawText(rect, QtCore.Qt.AlignCenter, self._overlay_text)
+            painter.end()
         self.image_label.setPixmap(scaled)
 
 
@@ -240,11 +263,131 @@ class FieldPanel(QtWidgets.QGroupBox):
             self.value_labels[key].setText(str(value))
 
 
+class LocalizationComparisonTable(QtWidgets.QGroupBox):
+    ROW_KEYS = ('odom', 'mcl', 'cnn_selected', 'cnn_1', 'cnn_2', 'cnn_3')
+    COLUMNS = ('Source', 'x', 'y', 'yaw', 'conf')
+
+    def __init__(self, parent=None):
+        super().__init__('Localization Comparison', parent)
+        self.setObjectName('comparisonPanel')
+        self.setMinimumWidth(430)
+        self.table = QtWidgets.QTableWidget(len(self.ROW_KEYS), len(self.COLUMNS))
+        self.table.setHorizontalHeaderLabels(self.COLUMNS)
+        self.table.verticalHeader().setVisible(False)
+        self.table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        self.table.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
+        self.table.setFocusPolicy(QtCore.Qt.NoFocus)
+        self.table.setAlternatingRowColors(True)
+        self.table.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        self.table.horizontalHeader().setMinimumSectionSize(40)
+        self.table.verticalHeader().setDefaultSectionSize(28)
+        self.table.setMinimumHeight(230)
+
+        layout = QtWidgets.QVBoxLayout(self)
+        layout.setContentsMargins(10, 18, 10, 10)
+        layout.addWidget(self.table)
+        self.clear()
+
+    def clear(self):
+        for row, key in enumerate(self.ROW_KEYS):
+            self._set_row(row, self._default_label(key), None, None)
+
+    def update_from_fields(self, fields):
+        if 'odom' in fields:
+            self._set_row(0, 'Odom', fields.get('odom'), fields.get('confidence'))
+        if 'mcl' in fields:
+            self._set_row(1, 'MCL', fields.get('mcl'), self._mcl_confidence(fields))
+
+        best_locs = fields.get('best_pic_locs')
+        best_scores = fields.get('best_pic_scores')
+        best_cells = fields.get('best_pic_cells')
+        if isinstance(best_locs, (list, tuple)) or isinstance(best_scores, (list, tuple)) or isinstance(best_cells, (list, tuple)):
+            self._set_cnn_rows(best_locs, best_scores, best_cells)
+
+    def _set_cnn_rows(self, locs, scores, cells):
+        selected_loc = self._list_item(locs, 0)
+        selected_score = self._list_item(scores, 0)
+        selected_cell = self._list_item(cells, 0)
+        selected_label = 'CNN sel'
+        if selected_cell not in (None, ''):
+            selected_label = f'{selected_label} ({selected_cell})'
+        self._set_row(2, selected_label, selected_loc, selected_score)
+
+        for index in range(3):
+            loc = self._list_item(locs, index)
+            score = self._list_item(scores, index)
+            cell = self._list_item(cells, index)
+            label = f'CNN #{index + 1}'
+            if cell not in (None, ''):
+                label = f'{label} ({cell})'
+            self._set_row(3 + index, label, loc, score)
+
+    def _set_row(self, row, label, pose, confidence):
+        values = self._pose_values(pose)
+        row_values = [
+            label,
+            values[0],
+            values[1],
+            values[2],
+            self._format_value(confidence),
+        ]
+        for col, value in enumerate(row_values):
+            item = QtWidgets.QTableWidgetItem(value)
+            if col > 0:
+                item.setTextAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+            self.table.setItem(row, col, item)
+
+    def _pose_values(self, pose):
+        coerced = self._coerce_pose(pose)
+        if coerced is None:
+            return ('unknown', 'unknown', 'unknown')
+        return tuple(self._format_value(value) for value in coerced)
+
+    def _coerce_pose(self, value):
+        if isinstance(value, dict):
+            value = (value.get('x'), value.get('y'), value.get('yaw'))
+        if not isinstance(value, (list, tuple)) or len(value) < 3:
+            return None
+        try:
+            return (float(value[0]), float(value[1]), float(value[2]))
+        except (TypeError, ValueError):
+            return None
+
+    def _format_value(self, value):
+        if value is None:
+            return 'unknown'
+        try:
+            return f'{float(value):.2f}'
+        except (TypeError, ValueError):
+            return str(value)
+
+    def _mcl_confidence(self, fields):
+        nav_type = str(fields.get('nav_type', '')).upper()
+        if nav_type == 'MCL':
+            return fields.get('confidence')
+        return fields.get('mcl_variance')
+
+    def _default_label(self, key):
+        return {
+            'odom': 'Odom',
+            'mcl': 'MCL',
+            'cnn_selected': 'CNN sel',
+            'cnn_1': 'CNN #1',
+            'cnn_2': 'CNN #2',
+            'cnn_3': 'CNN #3',
+        }[key]
+
+    def _list_item(self, value, index):
+        if isinstance(value, (list, tuple)) and len(value) > index:
+            return value[index]
+        return None
+
+
 class MclVisualization(QtWidgets.QGroupBox):
     def __init__(self, parent=None):
-        super().__init__('MCL', parent)
+        super().__init__('', parent)
         self.setObjectName('mclPanel')
-        self.values = {}
         self.olin_map = OlinWorldMap.WorldMap()
         self.pose_history = []
         self.mcl_particles = []
@@ -255,7 +398,7 @@ class MclVisualization(QtWidgets.QGroupBox):
         layout.setContentsMargins(12, 18, 12, 12)
         layout.setSpacing(8)
 
-        title = QtWidgets.QLabel('Localization Window')
+        title = QtWidgets.QLabel('MCL Localization Window')
         title.setObjectName('mclTitle')
         title.setAlignment(QtCore.Qt.AlignCenter)
         layout.addWidget(title)
@@ -267,10 +410,6 @@ class MclVisualization(QtWidgets.QGroupBox):
         self.map_label.setScaledContents(False)
         layout.addWidget(self.map_label, 1)
         self.update_map()
-
-    def set_value(self, key, value):
-        if key in self.values:
-            self.values[key].setText(str(value))
 
     def update_pose(self, pose, odom_pose=None, cnn_locs=None, mcl_pose=None, mcl_particles=None):
         pose_tuple = self._coerce_pose(pose)
@@ -361,10 +500,13 @@ class UnifiedSeekerGUI(QtWidgets.QMainWindow):
         self.command_sock = None
         self.video_thread = None
         self.status_thread = None
+        self.latest_fields = {}
+        self._last_log_signatures = {}
+        self._last_odom_log_time = 0.0
 
         self.setWindowTitle('Seeker')
-        self.resize(1420, 860)
-        self.setMinimumSize(1100, 720)
+        self.resize(1580, 930)
+        self.setMinimumSize(1180, 760)
         self._build_layout()
         self._append_log('Unified PyQt GUI ready')
 
@@ -382,16 +524,13 @@ class UnifiedSeekerGUI(QtWidgets.QMainWindow):
         layout.setVerticalSpacing(12)
 
         self._build_top_bar(layout)
-        self._build_visual_row(layout)
-        self._build_dashboard_row(layout)
+        self._build_main_area(layout)
         self._build_log(layout)
 
-        layout.setRowStretch(1, 5)
-        layout.setRowStretch(2, 3)
+        layout.setRowStretch(0, 0)
+        layout.setRowStretch(1, 7)
+        layout.setRowStretch(2, 2)
         layout.setColumnStretch(0, 1)
-        layout.setColumnStretch(1, 1)
-        layout.setColumnStretch(2, 1)
-        layout.setColumnStretch(3, 1)
 
     def _build_top_bar(self, layout):
         top_bar = QtWidgets.QFrame()
@@ -403,7 +542,6 @@ class UnifiedSeekerGUI(QtWidgets.QMainWindow):
         self.video_status_label = QtWidgets.QLabel(f'Video: listening {VIDEO_HOST}:{VIDEO_PORT}')
         self.command_status_label = QtWidgets.QLabel('Commands: idle')
         self.fps_label = QtWidgets.QLabel('0.0 fps')
-        self.mode_label = QtWidgets.QLabel('Mode: unknown')
         self.battery_label = QtWidgets.QLabel('Battery: unknown')
         self.quit_button = QtWidgets.QPushButton('Quit')
         self.quit_button.clicked.connect(self.close)
@@ -412,7 +550,6 @@ class UnifiedSeekerGUI(QtWidgets.QMainWindow):
             self.video_status_label,
             self.command_status_label,
             self.fps_label,
-            self.mode_label,
             self.battery_label,
         ):
             label.setObjectName('topValue')
@@ -420,71 +557,72 @@ class UnifiedSeekerGUI(QtWidgets.QMainWindow):
 
         top_layout.addStretch(1)
         top_layout.addWidget(self.quit_button)
-        layout.addWidget(top_bar, 0, 0, 1, 4)
+        layout.addWidget(top_bar, 0, 0)
 
-    def _build_visual_row(self, layout):
+    def _build_main_area(self, layout):
+        main_split = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
+        main_split.setChildrenCollapsible(False)
+        left_widget = self._build_left_area()
+        right_widget = self._build_map_area()
+
+        main_split.addWidget(left_widget)
+        main_split.addWidget(right_widget)
+        main_split.setStretchFactor(0, 6)
+        main_split.setStretchFactor(1, 5)
+        layout.addWidget(main_split, 1, 0)
+
+    def _build_left_area(self):
+        widget = QtWidgets.QWidget()
+        widget.setMinimumWidth(620)
+        layout = QtWidgets.QVBoxLayout(widget)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(12)
+
         self.depth_panel = ImagePanel('Depth', 'Waiting for depth stream')
         self.camera_panel = ImagePanel('Camera', 'Waiting for camera stream')
+        self.robot_panel = FieldPanel('Robot Status', self._robot_status_rows())
+        self.robot_panel.setMaximumWidth(340)
+        self.localization_table = LocalizationComparisonTable()
+
+        sensor_row = QtWidgets.QHBoxLayout()
+        sensor_row.setSpacing(12)
+        sensor_row.addWidget(self.depth_panel, 1)
+        sensor_row.addWidget(self.camera_panel, 1)
+
+        status_row = QtWidgets.QHBoxLayout()
+        status_row.setSpacing(12)
+        status_row.addWidget(self.robot_panel, 2)
+        status_row.addWidget(self.localization_table, 3)
+
+        layout.addLayout(sensor_row, 3)
+        layout.addLayout(status_row, 2)
+        return widget
+
+    def _build_map_area(self):
+        widget = QtWidgets.QWidget()
+        widget.setMinimumWidth(520)
+        layout = QtWidgets.QVBoxLayout(widget)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(12)
+
         self.mcl_panel = MclVisualization()
+        self.controls_panel = self._build_controls_panel()
+        layout.addWidget(self.mcl_panel, 1)
+        layout.addWidget(self.controls_panel, 0)
+        return widget
 
-        layout.addWidget(self.depth_panel, 1, 0)
-        layout.addWidget(self.camera_panel, 1, 1)
-        layout.addWidget(self.mcl_panel, 1, 2, 1, 2)
+    def _robot_status_rows(self):
+        return [
+            ('current_cell', 'Current cell', 'unknown'),
+            ('next_cell', 'Next cell', 'unknown'),
+            ('target_distance', 'Target distance', 'unknown'),
+            ('current_yaw', 'Current yaw', 'unknown'),
+            ('turn_state', 'Turn state', 'unknown'),
+            ('nav_state', 'Navigation brain/state', 'unknown'),
+            ('cnn_model', 'CNN model', 'unknown'),
+        ]
 
-    def _build_dashboard_row(self, layout):
-        self.robot_panel = FieldPanel(
-            'Robot Status',
-            [
-                ('current_node', 'Current node', 'unknown'),
-                ('current_cell', 'Current cell', 'unknown'),
-                ('next_node', 'Next node', 'unknown'),
-                ('match_status', 'Match', 'unknown'),
-                ('confidence', 'Confidence', 'unknown'),
-                ('target_distance', 'Target distance', 'unknown'),
-                ('turn_state', 'Turn', 'unknown'),
-                ('nav_type', 'Nav', 'unknown'),
-            ],
-        )
-        self.localization_panel = FieldPanel(
-            'Localization Telemetry',
-            [
-                ('odom', 'Odom', 'unknown'),
-                ('last_known', 'Last known', 'unknown'),
-                ('mcl', 'MCL', 'unknown'),
-                ('turn_info', 'Turn info', 'unknown'),
-                ('best_pic_scores', 'Image scores', 'unknown'),
-                ('best_pic_locs', 'Image locs', 'unknown'),
-            ],
-        )
-        self.controls_panel = self._create_controls_panel()
-        self.cnn_panel = FieldPanel(
-            'CNN / TensorFlow',
-            [
-                ('tensorflow_status', 'TensorFlow', 'unknown'),
-                ('tensorflow_version', 'TF version', 'unknown'),
-                ('gpu_devices', 'GPUs', 'unknown'),
-                ('cnn_device', 'CNN device', 'unknown'),
-                ('cnn_model_loaded', 'Model loaded', 'unknown'),
-                ('cnn_latency_ms', 'CNN latency', 'unknown'),
-                ('cnn_sequence_length', 'Sequence', 'unknown'),
-                ('best_pic_cells', 'Top cells', 'unknown'),
-                ('cnn_scores', 'Top scores', 'unknown'),
-                ('predicted_heading', 'Heading', 'unknown'),
-                ('heading_source', 'Heading source', 'unknown'),
-                ('correction_source', 'Correction', 'unknown'),
-                ('correction_weight', 'Correction weight', 'unknown'),
-                ('cnn_observation_rejected', 'CNN rejected', 'unknown'),
-                ('mcl_variance', 'MCL variance', 'unknown'),
-                ('cnn_model', 'CNN model', 'unknown'),
-            ],
-        )
-
-        layout.addWidget(self.robot_panel, 2, 0)
-        layout.addWidget(self.localization_panel, 2, 1)
-        layout.addWidget(self.controls_panel, 2, 2)
-        layout.addWidget(self.cnn_panel, 2, 3)
-
-    def _create_controls_panel(self):
+    def _build_controls_panel(self):
         panel = QtWidgets.QGroupBox('Navigation Controls')
         layout = QtWidgets.QGridLayout(panel)
         layout.setContentsMargins(12, 18, 12, 12)
@@ -494,16 +632,16 @@ class UnifiedSeekerGUI(QtWidgets.QMainWindow):
         self.start_entry = QtWidgets.QLineEdit()
         self.yaw_entry = QtWidgets.QLineEdit()
         self.dest_entry = QtWidgets.QLineEdit()
-        self.start_entry.setPlaceholderText('start node or cell')
+        self.start_entry.setPlaceholderText('start/current cell')
         self.yaw_entry.setPlaceholderText('yaw')
         self.dest_entry.setPlaceholderText('destination')
 
-        layout.addWidget(QtWidgets.QLabel('Start'), 0, 0)
-        layout.addWidget(self.start_entry, 0, 1, 1, 3)
+        layout.addWidget(QtWidgets.QLabel('Start/current cell'), 0, 0)
+        layout.addWidget(self.start_entry, 0, 1)
         layout.addWidget(QtWidgets.QLabel('Yaw'), 1, 0)
-        layout.addWidget(self.yaw_entry, 1, 1, 1, 3)
-        layout.addWidget(QtWidgets.QLabel('Dest'), 2, 0)
-        layout.addWidget(self.dest_entry, 2, 1, 1, 3)
+        layout.addWidget(self.yaw_entry, 1, 1)
+        layout.addWidget(QtWidgets.QLabel('Destination'), 2, 0)
+        layout.addWidget(self.dest_entry, 2, 1)
 
         buttons = [
             ('Set Start', self._send_start),
@@ -515,14 +653,12 @@ class UnifiedSeekerGUI(QtWidgets.QMainWindow):
         for index, (label, callback) in enumerate(buttons):
             button = QtWidgets.QPushButton(label)
             button.clicked.connect(callback)
-            row = 3 + index // 3
-            col = index % 3
-            span = 1 if index < 3 else 2
-            layout.addWidget(button, row, col * span, 1, span)
+            layout.addWidget(button, 0 + index // 3, 2 + index % 3)
 
         layout.setColumnStretch(1, 1)
         layout.setColumnStretch(2, 1)
         layout.setColumnStretch(3, 1)
+        layout.setColumnStretch(4, 1)
         return panel
 
     def _build_log(self, layout):
@@ -533,7 +669,7 @@ class UnifiedSeekerGUI(QtWidgets.QMainWindow):
         self.log_text.setReadOnly(True)
         self.log_text.setMaximumBlockCount(300)
         log_layout.addWidget(self.log_text)
-        layout.addWidget(log_panel, 3, 0, 1, 4)
+        layout.addWidget(log_panel, 2, 0)
 
     def _install_style(self):
         self.setStyleSheet(
@@ -621,6 +757,19 @@ class UnifiedSeekerGUI(QtWidgets.QMainWindow):
                 font-family: monospace;
                 font-size: 12px;
             }
+            QTableWidget {
+                background: #f8f9f6;
+                alternate-background-color: #eef1eb;
+                border: 1px solid #a3a7a1;
+                gridline-color: #b9bdb5;
+                font-size: 12px;
+            }
+            QHeaderView::section {
+                background: #d4d8d1;
+                border: 1px solid #a3a7a1;
+                padding: 4px;
+                font-weight: 700;
+            }
             '''
         )
 
@@ -640,98 +789,119 @@ class UnifiedSeekerGUI(QtWidgets.QMainWindow):
     def _set_frame(self, stream_name, frame):
         if stream_name == 'camera':
             self.camera_panel.set_frame(frame)
+            self.camera_panel.set_overlay_text(self._camera_overlay_text())
         elif stream_name == 'depth':
             self.depth_panel.set_frame(frame)
 
     def _apply_planner_status(self, fields):
-        if 'mode' in fields:
-            self.mode_label.setText(f"Mode: {fields['mode']}")
+        self.latest_fields.update(fields)
+        self._apply_top_status(fields)
+        self._apply_robot_status(fields)
+        self._apply_camera_overlay()
+        self._apply_localization_table()
+        self._apply_map_status(fields)
+        self._log_status_updates(fields)
+
+        if 'log' in fields:
+            self._append_log(fields['log'])
+
+    def _apply_top_status(self, fields):
         if 'battery' in fields:
             self.battery_label.setText(f"Battery: {fields['battery']}")
-        if 'current_node' in fields:
-            value = fields['current_node']
-            self.robot_panel.set_value('current_node', value)
-            self.mcl_panel.set_value('current_node', value)
+
+    def _apply_robot_status(self, fields):
         if 'current_cell' in fields:
-            value = fields['current_cell']
-            self.robot_panel.set_value('current_cell', value)
-            self.mcl_panel.set_value('current_cell', value)
+            self.robot_panel.set_value('current_cell', fields['current_cell'])
         if 'next_node' in fields:
-            self.robot_panel.set_value('next_node', fields['next_node'])
-        if 'match_status' in fields:
-            self.robot_panel.set_value('match_status', fields['match_status'])
-        if 'confidence' in fields:
-            value = self._format_float(fields['confidence'], 2)
-            self.robot_panel.set_value('confidence', value)
-            self.mcl_panel.set_value('confidence', value)
+            self.robot_panel.set_value('next_cell', fields['next_node'])
         if 'target_distance' in fields:
             self.robot_panel.set_value('target_distance', self._format_float(fields['target_distance'], 2))
         if 'turn_state' in fields:
             self.robot_panel.set_value('turn_state', fields['turn_state'])
-        if 'nav_type' in fields:
-            value = fields['nav_type']
-            self.robot_panel.set_value('nav_type', value)
-            self.mcl_panel.set_value('nav_type', value)
-        if 'odom' in fields:
-            self.localization_panel.set_value('odom', self._format_sequence(fields['odom']))
-        if 'last_known' in fields:
-            self.localization_panel.set_value('last_known', self._format_sequence(fields['last_known']))
-        if 'mcl' in fields:
-            value = self._format_sequence(fields['mcl'])
-            self.localization_panel.set_value('mcl', value)
-            self.mcl_panel.set_value('mcl_pose', value)
-        if 'turn_info' in fields:
-            self.localization_panel.set_value('turn_info', self._format_sequence(fields['turn_info']))
-        if 'best_pic_scores' in fields:
-            value = self._format_sequence(fields['best_pic_scores'])
-            self.localization_panel.set_value('best_pic_scores', value)
-            self.cnn_panel.set_value('cnn_scores', value)
-        if 'best_pic_locs' in fields:
-            self.localization_panel.set_value('best_pic_locs', self._format_sequence(fields['best_pic_locs']))
-        if 'tensorflow_status' in fields:
-            self.cnn_panel.set_value('tensorflow_status', fields['tensorflow_status'])
-        if 'tensorflow_version' in fields:
-            self.cnn_panel.set_value('tensorflow_version', fields['tensorflow_version'])
-        if 'gpu_devices' in fields:
-            self.cnn_panel.set_value('gpu_devices', self._format_devices(fields['gpu_devices']))
-        if 'cnn_device' in fields:
-            self.cnn_panel.set_value('cnn_device', self._short_device(fields['cnn_device']))
         if 'cnn_model' in fields:
-            self.cnn_panel.set_value('cnn_model', os.path.basename(str(fields['cnn_model'])))
-        if 'cnn_model_loaded' in fields:
-            self.cnn_panel.set_value('cnn_model_loaded', fields['cnn_model_loaded'])
-        if 'cnn_latency_ms' in fields:
-            self.cnn_panel.set_value('cnn_latency_ms', f"{float(fields['cnn_latency_ms']):.1f} ms")
-        if 'cnn_sequence_length' in fields:
-            current = fields['cnn_sequence_length']
-            target = fields.get('cnn_sequence_target_length', '?')
-            self.cnn_panel.set_value('cnn_sequence_length', f'{current}/{target}')
-        if 'best_pic_cells' in fields:
-            self.cnn_panel.set_value('best_pic_cells', self._format_sequence(fields['best_pic_cells']))
-        if 'predicted_heading' in fields:
-            self.cnn_panel.set_value('predicted_heading', self._format_float(fields['predicted_heading'], 2))
-        if 'heading_source' in fields:
-            self.cnn_panel.set_value('heading_source', fields['heading_source'])
-        if 'correction_source' in fields:
-            self.cnn_panel.set_value('correction_source', fields['correction_source'])
-        if 'correction_weight' in fields:
-            self.cnn_panel.set_value('correction_weight', self._format_float(fields['correction_weight'], 2))
-        if 'cnn_observation_rejected' in fields:
-            self.cnn_panel.set_value('cnn_observation_rejected', fields['cnn_observation_rejected'] or 'no')
-        if 'mcl_variance' in fields:
-            value = self._format_float(fields['mcl_variance'], 2)
-            self.cnn_panel.set_value('mcl_variance', value)
-            self.mcl_panel.set_value('mcl_variance', value)
+            self.robot_panel.set_value('cnn_model', os.path.basename(str(fields['cnn_model'])))
+
+        nav_state = self.latest_fields.get(
+            'nav_type',
+            self.latest_fields.get('localizer_mode', self.latest_fields.get('match_status', 'unknown')),
+        )
+        self.robot_panel.set_value('nav_state', nav_state)
+        self.robot_panel.set_value('current_yaw', self._current_yaw_text())
+
+    def _apply_camera_overlay(self):
+        self.camera_panel.set_overlay_text(self._camera_overlay_text())
+
+    def _apply_localization_table(self):
+        self.localization_table.update_from_fields(self.latest_fields)
+
+    def _apply_map_status(self, fields):
         if {'pose', 'odom', 'best_pic_locs', 'mcl', 'mcl_particles'} & set(fields):
             self.mcl_panel.update_pose(
-                fields.get('pose'),
-                odom_pose=fields.get('odom'),
-                cnn_locs=fields.get('best_pic_locs'),
-                mcl_pose=fields.get('mcl'),
-                mcl_particles=fields.get('mcl_particles'),
+                self.latest_fields.get('pose'),
+                odom_pose=self.latest_fields.get('odom'),
+                cnn_locs=self.latest_fields.get('best_pic_locs'),
+                mcl_pose=self.latest_fields.get('mcl'),
+                mcl_particles=self.latest_fields.get('mcl_particles'),
             )
-        if 'log' in fields:
-            self._append_log(fields['log'])
+
+    def _camera_overlay_text(self):
+        cells = self.latest_fields.get('best_pic_cells')
+        scores = self.latest_fields.get('best_pic_scores')
+        if isinstance(cells, (list, tuple)) and cells:
+            score = None
+            if isinstance(scores, (list, tuple)) and scores:
+                score = self._format_float(scores[0], 1)
+            if score is not None:
+                return f'CNN: cell {cells[0]} ({score}%)'
+            return f'CNN: cell {cells[0]}'
+        if 'current_cell' in self.latest_fields:
+            return f"Cell: {self.latest_fields['current_cell']}"
+        return 'CNN: unknown'
+
+    def _current_yaw_text(self):
+        pose = self.latest_fields.get('pose')
+        if isinstance(pose, dict) and pose.get('yaw') is not None:
+            return self._format_float(pose.get('yaw'), 2)
+        odom = self.latest_fields.get('odom')
+        if isinstance(odom, (list, tuple)) and len(odom) >= 3:
+            return self._format_float(odom[2], 2)
+        return 'unknown'
+
+    def _log_status_updates(self, fields):
+        if 'best_pic_cells' in fields or 'best_pic_scores' in fields:
+            cells = self.latest_fields.get('best_pic_cells')
+            scores = self.latest_fields.get('best_pic_scores')
+            self._append_log_once('cnn_prediction', f'CNN prediction: cells={cells} scores={scores}')
+
+        rejection = fields.get('cnn_observation_rejected')
+        if rejection:
+            self._append_log_once('cnn_rejected', f'CNN correction rejected: {rejection}')
+
+        if 'mcl' in fields or 'mcl_variance' in fields:
+            self._append_log_once(
+                'mcl_update',
+                f"MCL update: pose={self._format_sequence(self.latest_fields.get('mcl', 'unknown'))} "
+                f"variance={self._format_float(self.latest_fields.get('mcl_variance'), 2)}",
+            )
+
+        if 'odom' in fields:
+            now = time.time()
+            if now - self._last_odom_log_time >= 2.0:
+                self._last_odom_log_time = now
+                self._append_log_once('odom_update', f"Odometry update: {self._format_sequence(fields['odom'])}")
+
+        if 'nav_type' in fields or 'match_status' in fields or 'next_node' in fields:
+            self._append_log_once(
+                'nav_update',
+                f"Navigation update: state={self.latest_fields.get('nav_type', self.latest_fields.get('match_status', 'unknown'))} "
+                f"next={self.latest_fields.get('next_node', 'unknown')}",
+            )
+
+    def _append_log_once(self, key, message):
+        if self._last_log_signatures.get(key) == message:
+            return
+        self._last_log_signatures[key] = message
+        self._append_log(message)
 
     def _format_sequence(self, value):
         if isinstance(value, (list, tuple)):
@@ -745,20 +915,6 @@ class UnifiedSeekerGUI(QtWidgets.QMainWindow):
             return f'{float(value):.{digits}f}'
         except (TypeError, ValueError):
             return str(value)
-
-    def _short_device(self, value):
-        text = str(value)
-        for marker in ('/device:', '/physical_device:'):
-            if marker in text:
-                return text.split(marker)[-1]
-        return text
-
-    def _format_devices(self, value):
-        if isinstance(value, (list, tuple)):
-            if not value:
-                return 'none'
-            return ', '.join(self._short_device(item) for item in value)
-        return self._short_device(value)
 
     def _connect_command_socket(self):
         if self.command_sock is not None:
