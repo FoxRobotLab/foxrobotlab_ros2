@@ -27,7 +27,7 @@ data_name = "TestHeadingInCellPredAdam224Corrected"
 
 outputSize = 271 #ie number of classes
 image_size = 224
-seqLength = 10
+seqLength = 20
 skipSize = 5
 
 batch_size = 8
@@ -279,6 +279,12 @@ def buildNetwork():
             num_classes=outputSize
         )
         model.build([None, seqLength, image_size, image_size, 3])
+
+    model.trainable = True
+    for layer in model.layers[:-1]:
+        layer.trainable = False
+    model.layers[-1].trainable = True
+
     model.compile(
         loss= keras.losses.sparse_categorical_crossentropy,
         optimizer=keras.optimizers.Adam(learning_rate=learning_rate),
