@@ -4,7 +4,7 @@ localizer_server:
   show_images: false
   mode: 'cnn_mcl'
   model: 'lstm_cell'
-  cell_model_path: "src/foxrobotlab_ros2/src/match_seeker/res/models/newCellPredAdam224-74-1.26.keras"
+  cell_model_path: "src/foxrobotlab_ros2/src/match_seeker/res/models/TestHeadingInCellPredAdam224Corrected-01-1.99.keras"
   show_mcl: false
   mcl_particles: 250
 
@@ -16,7 +16,7 @@ python_env:
   env: {}
 
 tensorflow_check:
-  model_path: "src/foxrobotlab_ros2/src/match_seeker/res/models/newCellPredAdam224-74-1.26.keras"
+  model_path: "src/foxrobotlab_ros2/src/match_seeker/res/models/TestHeadingInCellPredAdam224Corrected-01-1.99.keras"
   run_model_predict: true
 
 video_stream:
