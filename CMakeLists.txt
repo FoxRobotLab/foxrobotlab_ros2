@@ -55,6 +55,13 @@ install(PROGRAMS
   DESTINATION share/${PROJECT_NAME}/src
 )
 
+# Small utilities for checking ROS 2 discovery between hosts.
+install(PROGRAMS
+  tests/talker.py
+  tests/listener.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights
