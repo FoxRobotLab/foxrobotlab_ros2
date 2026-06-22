@@ -180,7 +180,7 @@ class PotentialFieldBrain(threading.Thread):
 
 
 # if __name__ == "__main__":
-#     robot = turtleControl.TurtleBot()
+#     robot = TurtleControlProcessor(spin_in_background=True)
 #     brain = PotentialFieldBrain(robot)
 #     brain.add(FieldBehaviors.KeepMoving())
 #     brain.add(FieldBehaviors.BumperReact())
@@ -193,4 +193,3 @@ class PotentialFieldBrain(threading.Thread):
 #
 #     say = raw_input("stop? ")
 #     brain.stop()
-

@@ -44,8 +44,7 @@ class TurtleControlProcessor(Node):
         self.wheelDrop_msg = None
         self.cliff_msg = None  
 
-        #-------Imported Variables from turtleControl.py-------
-        # Offset Variables, temporary summer 2018 offsets
+        # Map-frame odometry offsets carried over from the legacy controller.
         self.offset_x = 6.1
         self.offset_y = 41.1
         self.offset_yaw = 270.0

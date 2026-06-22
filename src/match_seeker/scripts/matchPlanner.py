@@ -14,8 +14,7 @@ always accurately reflect what is happening. Fix what is being logged to the
 GUI here and in SeekerGUI2.py
 
 Team Summer 2026 started to refactor for ROS2. Changes made:
-- Now using TurtleControlProcessor to replace turtleControl.py
-- 
+- Uses TurtleControlProcessor for ROS2 robot I/O and motion commands.
 
 Note: Do not start matchPlanner unless the robot is on the ground, otherwise the odometry
 will be off.
