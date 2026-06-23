@@ -1,0 +1,5 @@
+print_robot_state_app:
+  ros__parameters:
+    state_topic: "/robot/state"
+    safety_topic: "/robot/safety_status"
+    log_period_sec: 1.0

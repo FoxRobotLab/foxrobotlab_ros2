@@ -15,6 +15,9 @@ class PrintRobotStateApp(Node):
 
         self.declare_parameter("state_topic", "/robot/state")
         self.declare_parameter("safety_topic", "/robot/safety_status")
+        self.declare_parameter("log_period_sec", 1.0)
+        self.log_period_sec = float(self.get_parameter("log_period_sec").value)
+        self.last_state_log_time = None
 
         self.create_subscription(
             RobotState,
@@ -31,6 +34,13 @@ class PrintRobotStateApp(Node):
         self.get_logger().info("Printing /robot/state and /robot/safety_status.")
 
     def _state_callback(self, msg):
+        now = self.get_clock().now()
+        if self.last_state_log_time is not None:
+            elapsed = (now - self.last_state_log_time).nanoseconds / 1_000_000_000.0
+            if elapsed < self.log_period_sec:
+                return
+        self.last_state_log_time = now
+
         position = msg.pose.pose.pose.position
         velocity = msg.velocity
         self.get_logger().info(

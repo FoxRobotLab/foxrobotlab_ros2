@@ -21,11 +21,18 @@ def include_launch(package_name, launch_file):
 def generate_launch_description():
     system = include_launch("robot_bringup", "tb2_system.launch.py")
 
+    config_file = PathJoinSubstitution([
+        FindPackageShare("robot_apps"),
+        "config",
+        "state_printer.yaml"
+    ])
+
     app = Node(
         package="robot_apps",
         executable="print_robot_state_app.py",
         name="print_robot_state_app",
-        output="screen"
+        output="screen",
+        parameters=[config_file]
     )
 
     return LaunchDescription([

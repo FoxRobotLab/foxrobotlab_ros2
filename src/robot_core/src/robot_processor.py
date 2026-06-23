@@ -23,10 +23,12 @@ class RobotProcessor(Node):
         self.declare_parameter("state_topic", "/robot/state")
         self.declare_parameter("publish_rate_hz", 5.0)
         self.declare_parameter("stale_timeout_sec", 1.0)
+        self.declare_parameter("require_scan", False)
 
         self.robot_name = self.get_parameter("robot_name").value
         self.robot_type = self.get_parameter("robot_type").value
         self.stale_timeout_sec = float(self.get_parameter("stale_timeout_sec").value)
+        self.require_scan = bool(self.get_parameter("require_scan").value)
 
         self.last_odom = None
         self.last_scan = None
@@ -105,8 +107,10 @@ class RobotProcessor(Node):
             return "Safety stop active"
         if not msg.odom_valid:
             return "Waiting for odometry"
-        if not msg.scan_valid:
+        if self.require_scan and not msg.scan_valid:
             return "Waiting for scan"
+        if not msg.scan_valid:
+            return "Robot state nominal; scan unavailable"
         return "Robot state nominal"
 
 
