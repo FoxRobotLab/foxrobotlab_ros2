@@ -1,0 +1,6 @@
+safety_monitor:
+  ros__parameters:
+    safety_topic: "/robot/safety_status"
+    stop_on_bumper: true
+    stop_on_cliff: true
+    stop_on_wheel_drop: true

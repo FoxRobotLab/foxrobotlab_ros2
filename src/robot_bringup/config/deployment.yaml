@@ -1,0 +1,4 @@
+deployment:
+  mode: "hardware"
+  robot: "tb2"
+  use_discovery_server: false

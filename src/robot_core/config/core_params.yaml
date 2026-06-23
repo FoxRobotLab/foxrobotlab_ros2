@@ -1,0 +1,10 @@
+robot_processor:
+  ros__parameters:
+    robot_name: "turtlebot2"
+    robot_type: "hardware"
+    odom_topic: "/robot/odom"
+    scan_topic: "/robot/scan"
+    safety_topic: "/robot/safety_status"
+    state_topic: "/robot/state"
+    publish_rate_hz: 5.0
+    stale_timeout_sec: 1.0

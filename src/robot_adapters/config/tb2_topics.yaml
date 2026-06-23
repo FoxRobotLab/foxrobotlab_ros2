@@ -1,0 +1,41 @@
+tb2_adapter:
+  ros__parameters:
+    robot_name: "turtlebot2"
+    robot_type: "hardware"
+
+    input_topics:
+      odom: "/odom"
+      scan: "/scan"
+      imu: "/sensors/imu_data"
+      bumper: "/events/bumper"
+      cliff: "/events/cliff"
+      wheel_drop: "/events/wheel_drop"
+      battery: "/sensors/battery_state"
+      camera: "/camera/image_raw"
+      camera_info: "/camera/camera_info"
+
+    output_topics:
+      odom: "/robot/odom"
+      scan: "/robot/scan"
+      imu: "/robot/imu"
+      camera: "/robot/camera/image_raw"
+      camera_info: "/robot/camera/camera_info"
+      safety_status: "/robot/safety_status"
+      state: "/robot/state"
+      capabilities: "/robot/capabilities"
+
+    command_topics:
+      internal_cmd_vel: "/robot/cmd_vel"
+      native_cmd_vel: "/commands/velocity"
+
+    capabilities:
+      has_lidar: true
+      has_camera: true
+      has_depth_camera: false
+      has_imu: true
+      has_docking: true
+      has_hazard_detection: false
+      has_cliff_detection: true
+      has_wheel_drop_detection: true
+      has_battery: true
+      is_simulated: false

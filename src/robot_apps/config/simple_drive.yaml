@@ -1,0 +1,5 @@
+simple_drive_app:
+  ros__parameters:
+    cmd_vel_topic: "/robot/cmd_vel"
+    linear_x: 0.03
+    duration_sec: 2.0
