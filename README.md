@@ -17,4 +17,4 @@ On the robot/client
     - ros2 launch foxrobotlab_ros2 robot_system.launch.py
 
 To launch the robot ONLY
-- ros2 launch kobuki_node kobuki_node.launch.py
+- ros2 launch foxrobotlab_ros2 kobuki.launch.py
