@@ -34,7 +34,9 @@ tb2_adapter:
 
     command_topics:
       internal_cmd_vel: "/robot/cmd_vel"
-      native_cmd_vel: "/commands/velocity"
+      # foxrobotlab_ros2/launch/kobuki.launch.py remaps the Kobuki driver's
+      # /commands/velocity input to /cmd_vel.
+      native_cmd_vel: "/cmd_vel"
 
     capabilities:
       has_lidar: false

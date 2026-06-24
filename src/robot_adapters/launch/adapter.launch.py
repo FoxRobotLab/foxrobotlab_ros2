@@ -9,16 +9,17 @@ from launch.substitutions import PathJoinSubstitution
 def generate_launch_description():
     ld = LaunchDescription()
 
-    robot = LaunchConfiguration("robot")
+    config = LaunchConfiguration("config")
 
     args = [
-        DeclareLaunchArgument("robot", default_value="tb2")
+        DeclareLaunchArgument("robot", default_value="tb2"),
+        DeclareLaunchArgument("config", default_value="tb2_topics.yaml"),
     ]
     
     config_file = PathJoinSubstitution([
         FindPackageShare("robot_adapters"),
         "config",
-        "tb2_topics.yaml"
+        config,
     ])
 
     tb2_adapter_node = Node(

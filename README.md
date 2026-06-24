@@ -151,10 +151,16 @@ source install/setup.bash
 
 ## Phase 1 Run Commands
 
-Driver only:
+TurtleBot2 base only:
 
 ```bash
-ros2 launch kobuki_node kobuki_node-launch.py
+ros2 launch robot_bringup tb2_base.launch.py
+```
+
+This includes `foxrobotlab_ros2/launch/kobuki.launch.py`, the current FoxRobotLab hardware wrapper around `kobuki_node`. Driver launch arguments are passed through:
+
+```bash
+ros2 launch robot_bringup tb2_base.launch.py astra:=true xtion:=false lidar_a2:=false lidar_s2:=false
 ```
 
 Adapter only:
@@ -173,6 +179,12 @@ Full TurtleBot2 Phase 1 system:
 
 ```bash
 ros2 launch robot_bringup tb2_system.launch.py
+```
+
+The full system accepts the same base driver arguments:
+
+```bash
+ros2 launch robot_bringup tb2_system.launch.py astra:=true lidar_a2:=false lidar_s2:=false
 ```
 
 Print robot state:
