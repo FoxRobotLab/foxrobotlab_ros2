@@ -29,11 +29,11 @@ tb2_adapter:
       native_cmd_vel: "/commands/velocity"
 
     capabilities:
-      has_lidar: true
+      has_lidar: false
       has_camera: true
       has_depth_camera: false
       has_imu: true
-      has_docking: true
+      has_docking: false
       has_hazard_detection: false
       has_cliff_detection: true
       has_wheel_drop_detection: true

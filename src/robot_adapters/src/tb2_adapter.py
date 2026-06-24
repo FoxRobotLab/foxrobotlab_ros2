@@ -9,13 +9,8 @@ from sensor_msgs.msg import Imu, LaserScan
 
 from lab_interfaces.msg import SafetyStatus
 
-try:
-    from kobuki_ros_interfaces.msg import BumperEvent, CliffEvent, WheelDropEvent
-except ImportError:
-    BumperEvent = None
-    CliffEvent = None
-    WheelDropEvent = None
-
+# From Third Party Package. Credit to Intelligent Robotics Lab from Universidad Rey Juan Carlos
+from kobuki_ros_interfaces.msg import BumperEvent, CliffEvent, WheelDropEvent
 
 QOS = 10
 
@@ -24,14 +19,12 @@ class TurtleBot2Adapter(Node):
     def __init__(self):
         super().__init__("tb2_adapter")
 
+        # ---------------- Fetch Parameters from YAML file ----------------
         self._declare_parameters()
+
+        # ---------------- Initialize Parameters ----------------
         self.robot_name = self.get_parameter("robot_name").value
         self.robot_type = self.get_parameter("robot_type").value
-
-        self.bumper_pressed = False
-        self.cliff_detected = False
-        self.wheel_drop_detected = False
-
         output_odom = self.get_parameter("output_topics.odom").value
         output_scan = self.get_parameter("output_topics.scan").value
         output_imu = self.get_parameter("output_topics.imu").value
@@ -39,6 +32,12 @@ class TurtleBot2Adapter(Node):
         internal_cmd_vel = self.get_parameter("command_topics.internal_cmd_vel").value
         native_cmd_vel = self.get_parameter("command_topics.native_cmd_vel").value
 
+        # ---------------- Specific Robot Parameters ----------------
+        self.bumper_pressed = False
+        self.cliff_detected = False
+        self.wheel_drop_detected = False
+
+        # ---------------- Initialize Publishers and Subscribers ----------------
         self.odom_pub = self.create_publisher(Odometry, output_odom, QOS)
         self.scan_pub = self.create_publisher(LaserScan, output_scan, QOS)
         self.imu_pub = self.create_publisher(Imu, output_imu, QOS)
@@ -61,6 +60,7 @@ class TurtleBot2Adapter(Node):
             f"TurtleBot2 adapter started: {internal_cmd_vel} -> {native_cmd_vel}"
         )
 
+    '''This helper function retrieves all the necessary parameters from the YAML file.'''
     def _declare_parameters(self):
         self.declare_parameter("robot_name", "turtlebot2")
         self.declare_parameter("robot_type", "hardware")
@@ -85,6 +85,7 @@ class TurtleBot2Adapter(Node):
         self.declare_parameter("capabilities.has_cliff_detection", True)
         self.declare_parameter("capabilities.has_wheel_drop_detection", True)
 
+    # ----------------- Subscription to Specific Robot Capabilities ----------------
     def _subscribe_scan_if_enabled(self):
         if not self.get_parameter("capabilities.has_lidar").value:
             self.get_logger().info("LaserScan adapter disabled by configuration.")
@@ -140,6 +141,7 @@ class TurtleBot2Adapter(Node):
 
         self._publish_safety_status("Waiting for Kobuki safety events")
 
+    # ----------------- Callback functions for Subscribers ----------------
     def _odom_callback(self, msg):
         self.odom_pub.publish(msg)
 
@@ -165,7 +167,8 @@ class TurtleBot2Adapter(Node):
         self._publish_safety_status(
             "Wheel drop detected" if self.wheel_drop_detected else "Wheel raised"
         )
-
+    
+    # ----------------- Status Printers -----------------
     def _publish_safety_status(self, status_message):
         msg = SafetyStatus()
         msg.header.stamp = self.get_clock().now().to_msg()

@@ -5,6 +5,7 @@ from launch_ros.substitutions import FindPackageShare
 from launch.substitutions import PathJoinSubstitution
 
 
+# ------------- Helper Function to find launch files -------------
 def include_launch(package_name, launch_file, launch_arguments=None):
     return IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
