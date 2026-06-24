@@ -15,3 +15,6 @@ On the robot/client
 1) Make sure to build similar to the workstation
 2) running the main program and robot startup
     - ros2 launch foxrobotlab_ros2 robot_system.launch.py
+
+To launch the robot ONLY
+ros2 launch kobuki_node kobuki_node.launch.py
