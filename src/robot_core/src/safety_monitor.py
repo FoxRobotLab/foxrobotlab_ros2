@@ -11,13 +11,12 @@ QOS = 10
 
 class SafetyMonitor(Node):
     def __init__(self):
-        super().__init__("safety_monitor")
+        super().__init__(
+            "safety_monitor",
+            automatically_declare_parameters_from_overrides=True,
+        )
 
-        self.declare_parameter("safety_topic", "/robot/safety_status")
-        self.declare_parameter("stop_on_bumper", True)
-        self.declare_parameter("stop_on_cliff", True)
-        self.declare_parameter("stop_on_wheel_drop", True)
-
+        # safety_params.yaml is the source of truth for monitor parameters.
         self.last_warning_signature = None
         self.create_subscription(
             SafetyStatus,

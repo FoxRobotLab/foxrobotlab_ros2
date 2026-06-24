@@ -13,21 +13,16 @@ QOS = 10
 
 class RobotProcessor(Node):
     def __init__(self):
-        super().__init__("robot_processor")
+        super().__init__(
+            "robot_processor",
+            automatically_declare_parameters_from_overrides=True,
+        )
 
-        self.declare_parameter("robot_name", "turtlebot2")
-        self.declare_parameter("robot_type", "hardware")
-        self.declare_parameter("odom_topic", "/robot/odom")
-        self.declare_parameter("scan_topic", "/robot/scan")
-        self.declare_parameter("safety_topic", "/robot/safety_status")
-        self.declare_parameter("state_topic", "/robot/state")
-        self.declare_parameter("publish_rate_hz", 5.0)
-        self.declare_parameter("stale_timeout_sec", 1.0)
-        self.declare_parameter("require_scan", False)
-
+        # core_params.yaml is the source of truth for processor parameters.
         self.robot_name = self.get_parameter("robot_name").value
         self.robot_type = self.get_parameter("robot_type").value
         self.stale_timeout_sec = float(self.get_parameter("stale_timeout_sec").value)
+        self.use_scan = bool(self.get_parameter("use_scan").value)
         self.require_scan = bool(self.get_parameter("require_scan").value)
 
         self.last_odom = None
@@ -45,12 +40,13 @@ class RobotProcessor(Node):
             self._odom_callback,
             QOS,
         )
-        self.create_subscription(
-            LaserScan,
-            self.get_parameter("scan_topic").value,
-            self._scan_callback,
-            QOS,
-        )
+        if self.use_scan:
+            self.create_subscription(
+                LaserScan,
+                self.get_parameter("scan_topic").value,
+                self._scan_callback,
+                QOS,
+            )
         self.create_subscription(
             SafetyStatus,
             self.get_parameter("safety_topic").value,

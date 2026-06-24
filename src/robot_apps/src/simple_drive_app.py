@@ -11,14 +11,12 @@ QOS = 10
 
 class SimpleDriveApp(Node):
     def __init__(self):
-        super().__init__("simple_drive_app")
+        super().__init__(
+            "simple_drive_app",
+            automatically_declare_parameters_from_overrides=True,
+        )
 
-        self.declare_parameter("cmd_vel_topic", "/robot/cmd_vel")
-        self.declare_parameter("linear_x", 0.03)
-        self.declare_parameter("angular_z", 0.0)
-        self.declare_parameter("duration_sec", 2.0)
-        self.declare_parameter("publish_rate_hz", 10.0)
-
+        # simple_drive.yaml is the source of truth for app parameters.
         self.linear_x = float(self.get_parameter("linear_x").value)
         self.angular_z = float(self.get_parameter("angular_z").value)
         self.duration_sec = float(self.get_parameter("duration_sec").value)

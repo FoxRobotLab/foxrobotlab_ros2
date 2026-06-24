@@ -16,17 +16,14 @@ Hardware / Simulation
 
 ## Current Phase
 
-Phase 1 proves the TurtleBot2 hardware path without Nav2, Gazebo, TurtleBot4, CNN localization, or client-server migration.
+Phase 2 is proving that `robot_adapters/tb2_adapter.py` can replace the forwarding behavior of `foxrobotlab_ros2/src/turtle_control_reciever.py`.
 
-```text
-kobuki_node
-  -> robot_adapters
-  -> /robot/... common topics
-  -> robot_core
-  -> robot_apps
-```
+Current Phase 2 goal:
 
-The imported Kobuki driver package is treated as the native hardware layer and is not rewritten.
+- Publish new common `/robot/...` sensor topics.
+- Temporarily keep `/foxrobotlab/raw/...` compatibility topics alive for old code.
+- Keep native topic names in adapter YAML files.
+- Do not change legacy launch files until adapter equivalence has been tested on hardware.
 
 ## Current Packages
 
@@ -120,12 +117,19 @@ The TurtleBot2 adapter currently exposes:
 
 ```text
 /robot/odom
-/robot/scan
 /robot/imu
+/robot/battery
+/robot/kobuki/core
+/robot/camera/color/image_raw
+/robot/camera/depth/image_raw
 /robot/cmd_vel
 /robot/safety_status
 /robot/state
 ```
+
+Optional topics are exposed only when the robot configuration says the hardware exists. For the current TurtleBot2 base, `has_lidar: false`, so `/robot/scan` is not published unless a lidar is added and enabled in `tb2_topics.yaml`. `robot_core` also leaves scan consumption off by default with `use_scan: false`.
+
+The current `tb2_topics.yaml` capability block matches what `foxrobotlab_ros2` uses today: odometry, IMU, color/depth camera, battery, Kobuki core sensors, bumper, cliff, and wheel-drop events. Lidar, docking, simulation, and separate hazard detection are disabled by default.
 
 Native TurtleBot2 topic names are kept in:
 
@@ -135,7 +139,9 @@ src/robot_adapters/config/tb2_topics.yaml
 
 High-level code should use `/robot/...` topics instead of subscribing directly to Kobuki native topics.
 
-## Phase 1 Build
+Architecture nodes use YAML files as their parameter source of truth. The Python nodes auto-declare parameters from launch-provided YAML overrides, so run them through their launch files rather than directly with `ros2 run` unless you also provide the required parameters.
+
+## Build
 
 ```bash
 cd ~/robotics/foxrobotlab_ws
@@ -201,6 +207,134 @@ ros2 topic pub --once /robot/cmd_vel geometry_msgs/msg/Twist "{}"
 
 Then test the slow drive app only when the TurtleBot2 is on the floor with clear space around it.
 
+## Phase 2 Status
+
+Already implemented in the adapter:
+
+- `/odom` -> `/robot/odom` and `/foxrobotlab/raw/odom`
+- `/sensors/imu_data` -> `/robot/imu` and `/foxrobotlab/raw/sensors/imu_data`
+- `/sensors/battery_state` -> `/robot/battery` and `/foxrobotlab/raw/sensors/battery_state`
+- `/sensors/core` -> `/robot/kobuki/core` and `/foxrobotlab/raw/sensors/core`
+- `/color/image_raw` -> `/robot/camera/color/image_raw` and `/foxrobotlab/raw/color/image_raw`
+- `/depth/image_raw` -> `/robot/camera/depth/image_raw` and `/foxrobotlab/raw/depth/image_raw`
+- Kobuki bumper, cliff, and wheel-drop events -> `/robot/safety_status` and `/foxrobotlab/raw/events/...`
+
+Not changed yet:
+
+- `foxrobotlab_ros2/launch/match_planner.launch.py` still launches `turtle_control_reciever.py`.
+- `turtle_control_reciever.py` remains as the legacy reference implementation.
+- `turtle_control_processor.py`, match planner, client-server, Nav2, Gazebo, TurtleBot4, and CNN code are not part of this Phase 2 validation step.
+
+## Adapter Compatibility Test
+
+Use this launch file when the native robot/camera stack is already running and you want to verify that the new adapter can provide both new and legacy topic outputs:
+
+```bash
+ros2 launch robot_adapters tb2_receiver_compat_test.launch.py
+```
+
+This launch starts only `tb2_adapter.py` with `tb2_topics.yaml`. It does not start `kobuki_node`, camera drivers, or legacy `foxrobotlab_ros2` nodes.
+
+New code should subscribe to `/robot/...` topics. The `/foxrobotlab/raw/...` topics are temporary compatibility outputs so old `foxrobotlab_ros2` code can keep running during migration.
+
+## Adapter Compatibility Checklist
+
+Build and source:
+
+```bash
+cd ~/robotics/foxrobotlab_ws
+colcon build --packages-select robot_adapters robot_core robot_apps robot_bringup lab_interfaces
+source install/setup.bash
+```
+
+Run the existing robot stack or driver/camera stack as usual, then run:
+
+```bash
+ros2 launch robot_adapters tb2_receiver_compat_test.launch.py
+```
+
+Check new common topics:
+
+```bash
+ros2 topic list | grep /robot
+ros2 topic echo /robot/odom
+ros2 topic echo /robot/imu
+ros2 topic echo /robot/battery
+ros2 topic echo /robot/kobuki/core
+ros2 topic hz /robot/camera/color/image_raw
+ros2 topic hz /robot/camera/depth/image_raw
+ros2 topic echo /robot/safety_status
+```
+
+Check temporary legacy compatibility topics:
+
+```bash
+ros2 topic list | grep /foxrobotlab/raw
+ros2 topic echo /foxrobotlab/raw/odom
+ros2 topic echo /foxrobotlab/raw/sensors/imu_data
+ros2 topic echo /foxrobotlab/raw/sensors/battery_state
+ros2 topic echo /foxrobotlab/raw/sensors/core
+ros2 topic hz /foxrobotlab/raw/color/image_raw
+ros2 topic hz /foxrobotlab/raw/depth/image_raw
+```
+
+Expected topic pairs:
+
+```text
+/robot/battery                  <-> /foxrobotlab/raw/sensors/battery_state
+/robot/camera/color/image_raw   <-> /foxrobotlab/raw/color/image_raw
+/robot/camera/depth/image_raw   <-> /foxrobotlab/raw/depth/image_raw
+/robot/kobuki/core              <-> /foxrobotlab/raw/sensors/core
+/robot/safety_status            <-> /foxrobotlab/raw/events/bumper, cliff, wheel_drop
+```
+
+Acceptance criteria:
+
+- Adapter starts without errors.
+- Available native sensors appear on matching `/robot/...` topics.
+- The same data appears on temporary `/foxrobotlab/raw/...` compatibility topics.
+- `/robot/scan` does not appear by default because `has_lidar: false`.
+- Existing Phase 1 state test still works.
+- No legacy launch files are changed yet.
+
+## How To Compare Old Receiver Vs New Adapter
+
+Old receiver flow:
+
+```text
+native topics -> turtle_control_reciever.py -> /foxrobotlab/raw/...
+```
+
+New adapter compatibility flow:
+
+```text
+native topics -> tb2_adapter.py -> /robot/...
+                              -> /foxrobotlab/raw/...
+```
+
+To compare them safely, run one forwarding path at a time. Do not run `turtle_control_reciever.py` and `tb2_adapter.py` compatibility mode at the same time, because both will publish the same `/foxrobotlab/raw/...` topics.
+
+Example battery comparison:
+
+```bash
+# Old path
+ros2 run foxrobotlab_ros2 turtle_control_reciever.py
+ros2 topic echo /foxrobotlab/raw/sensors/battery_state
+
+# New path
+ros2 launch robot_adapters tb2_receiver_compat_test.launch.py
+ros2 topic echo /robot/battery
+ros2 topic echo /foxrobotlab/raw/sensors/battery_state
+```
+
+Human learning pattern:
+
+1. Find the native topic in `turtle_control_reciever.py`.
+2. Find the old `/foxrobotlab/raw/...` output.
+3. Add or verify the new `/robot/...` output in `tb2_topics.yaml`.
+4. In `tb2_adapter.py`, import the message type, declare parameters, create publishers/subscribers, and republish in the callback.
+5. Test the new `/robot/...` topic and the temporary compatibility topic.
+
 ## Refactoring Roadmap
 
 ### Phase 1: TurtleBot2 Base Foundation
@@ -226,7 +360,6 @@ Likely common topics:
 /robot/battery
 /robot/camera/color/image_raw
 /robot/camera/depth/image_raw
-/robot/camera/camera_info
 ```
 
 ### Phase 3: Replace Legacy Receiver/Processor Paths
@@ -305,7 +438,7 @@ Retire or archive the old package when:
 ## Phase 1 Notes
 
 - The adapter has been verified to create the common `/robot/...` topics.
-- `/robot/scan` depends on a lidar source publishing the configured native scan topic. It is optional for Phase 1 base testing.
+- `/robot/scan` depends on a lidar source publishing the configured native scan topic. TurtleBot2 base does not have lidar by default, so `has_lidar` should stay `false` unless a physical lidar is attached and launched.
 - The safety monitor logs hazards but does not block velocity commands yet.
 - `foxrobotlab_ros2` remains in place as legacy working code during migration.
 - Nav2, Gazebo, TurtleBot4 support, CNN localization, and client-server migration are intentionally out of scope for Phase 1.

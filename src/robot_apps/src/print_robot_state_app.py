@@ -11,11 +11,12 @@ QOS = 10
 
 class PrintRobotStateApp(Node):
     def __init__(self):
-        super().__init__("print_robot_state_app")
+        super().__init__(
+            "print_robot_state_app",
+            automatically_declare_parameters_from_overrides=True,
+        )
 
-        self.declare_parameter("state_topic", "/robot/state")
-        self.declare_parameter("safety_topic", "/robot/safety_status")
-        self.declare_parameter("log_period_sec", 1.0)
+        # state_printer.yaml is the source of truth for app parameters.
         self.log_period_sec = float(self.get_parameter("log_period_sec").value)
         self.last_state_log_time = None
 

@@ -8,4 +8,5 @@ robot_processor:
     state_topic: "/robot/state"
     publish_rate_hz: 5.0
     stale_timeout_sec: 1.0
+    use_scan: false
     require_scan: false

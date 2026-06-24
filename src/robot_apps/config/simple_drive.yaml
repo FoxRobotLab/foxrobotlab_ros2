@@ -2,4 +2,6 @@ simple_drive_app:
   ros__parameters:
     cmd_vel_topic: "/robot/cmd_vel"
     linear_x: 0.03
+    angular_z: 0.0
     duration_sec: 2.0
+    publish_rate_hz: 10.0

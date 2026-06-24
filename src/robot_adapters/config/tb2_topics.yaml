@@ -7,21 +7,29 @@ tb2_adapter:
       odom: "/odom"
       scan: "/scan"
       imu: "/sensors/imu_data"
+
+      image_color: "/color/image_raw"
+      image_depth: "/depth/image_raw"
+
       bumper: "/events/bumper"
       cliff: "/events/cliff"
       wheel_drop: "/events/wheel_drop"
       battery: "/sensors/battery_state"
-      camera: "/camera/image_raw"
-      camera_info: "/camera/camera_info"
+      core: "/sensors/core"
 
     output_topics:
       odom: "/robot/odom"
       scan: "/robot/scan"
       imu: "/robot/imu"
-      camera: "/robot/camera/image_raw"
-      camera_info: "/robot/camera/camera_info"
+
+      image_color: "/robot/camera/color/image_raw"
+      image_depth: "/robot/camera/depth/image_raw"
+
       safety_status: "/robot/safety_status"
       state: "/robot/state"
+      battery: "/robot/battery"
+      core: "/robot/kobuki/core"
+
       capabilities: "/robot/capabilities"
 
     command_topics:
@@ -31,11 +39,26 @@ tb2_adapter:
     capabilities:
       has_lidar: false
       has_camera: true
-      has_depth_camera: false
+      has_depth_camera: true
       has_imu: true
+      has_core_sensors: true
       has_docking: false
       has_hazard_detection: false
+      has_bumper_detection: true
       has_cliff_detection: true
       has_wheel_drop_detection: true
       has_battery: true
       is_simulated: false
+
+    # Following parameters are temporary for foxrobotlab_ros2 to run
+    compatibility_topics:
+      enabled: true
+      odom: "/foxrobotlab/raw/odom"
+      imu: "/foxrobotlab/raw/sensors/imu_data"
+      battery: "/foxrobotlab/raw/sensors/battery_state"
+      core: "/foxrobotlab/raw/sensors/core"
+      color_image: "/foxrobotlab/raw/color/image_raw"
+      depth_image: "/foxrobotlab/raw/depth/image_raw"
+      bumper: "/foxrobotlab/raw/events/bumper"
+      cliff: "/foxrobotlab/raw/events/cliff"
+      wheel_drop: "/foxrobotlab/raw/events/wheel_drop"
