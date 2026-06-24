@@ -1,6 +1,3 @@
-[submodule "src/foxrobotlab_ros2"]
-	path = src/foxrobotlab_ros2
-	url = https://github.com/FoxRobotLab/foxrobotlab_ros2.git
 [submodule "src/ThirdParty/ecl/ecl_core"]
 	path = src/ThirdParty/ecl/ecl_core
 	url = https://github.com/Juancams/ecl_core.git
