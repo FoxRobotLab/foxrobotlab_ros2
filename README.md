@@ -16,7 +16,7 @@ On the robot/client
 2) running the main program and robot startup
     - ros2 launch foxrobotlab_ros2 robot_system.launch.py
 
-##Base robot bringup
+## Base robot bringup
 To launch the robot ONLY
 - ros2 launch foxrobotlab_ros2 kobuki.launch.py
 
@@ -25,3 +25,6 @@ for camera functionality
 
 for teleop
 - ros2 run teleop_twist_keyboard teleop_twist_keyboard
+
+to see camera/video feed
+- ros2 run image_view image_view --ros-args -r image:=/color/image_raw
