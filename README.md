@@ -16,5 +16,12 @@ On the robot/client
 2) running the main program and robot startup
     - ros2 launch foxrobotlab_ros2 robot_system.launch.py
 
+##Base robot bringup
 To launch the robot ONLY
 - ros2 launch foxrobotlab_ros2 kobuki.launch.py
+
+for camera functionality
+- ros2 launch foxrobotlab_ros2 kobuki.launch.py astra:=true
+
+for teleop
+- ros2 run teleop_twist_keyboard teleop_twist_keyboard
