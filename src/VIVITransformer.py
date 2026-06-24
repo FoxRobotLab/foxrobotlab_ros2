@@ -16,8 +16,8 @@ framesDataPath = myPath / "FrameData/"
 checkPts = myPath / "CHECKPOINTS/"
 
 run_id = time.strftime("%m%d%y%H%M")
-checkpoint_dir = str(checkPts) + f"/2024CellPredict_checkpoint-{run_id}/"
-data_name = "TestHeadingInCellPredAdam224Corrected"
+checkpoint_dir = str(checkPts) + f"/2026CellPredictTransformer_checkpoint-{run_id}/"
+data_name = "VIVIT"
 
 outputSize = 271 #ie number of classes
 image_size = 224
@@ -45,9 +45,9 @@ PROJECTION_DIM = 128
 NUM_HEADS = 8
 NUM_LAYERS = 8
 
-loaded_checkpoint_raw = None
+loaded_checkpoint_raw = "2026CellPredictTransformer_checkpoint-0623261432/VIVIT-20-0.17.keras"
 if loaded_checkpoint_raw is not None:
-    loaded_checkpoint = checkPts + loaded_checkpoint_raw
+    loaded_checkpoint = checkPts / loaded_checkpoint_raw
 else:
     loaded_checkpoint = loaded_checkpoint_raw
 
@@ -263,7 +263,7 @@ def prepDatasets():
     train_ds = DataGeneratorLSTM(framePath = framesDataPath, annotPath = textDataPath, skipSize=skipSize, seqLength=seqLength, batch_size = batch_size, generateForCellPred = False)
     val_ds = DataGeneratorLSTM(framePath = framesDataPath, annotPath = textDataPath, skipSize=skipSize, seqLength=seqLength, batch_size = batch_size, train = False, generateForCellPred = False)
 
-
+@keras.saving.register_keras_serializable()
 class TubeletEmbedding(layers.Layer):
     def __init__(self, embed_dim, patch_size, **kwargs):
         super().__init__(**kwargs)
@@ -273,6 +273,8 @@ class TubeletEmbedding(layers.Layer):
             strides=patch_size,
             padding="VALID",
         )
+        self.embed_dim = embed_dim
+        self.patch_size = patch_size
         self.flatten = layers.Reshape(target_shape=(-1, embed_dim))
 
     def call(self, videos):
@@ -280,6 +282,16 @@ class TubeletEmbedding(layers.Layer):
         flattened_patches = self.flatten(projected_patches)
         return flattened_patches
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "embed_dim": self.embed_dim,
+            "patch_size": self.patch_size,
+        })
+        return config
+
+
+@keras.saving.register_keras_serializable()
 class PositionalEncoder(layers.Layer):
     def __init__(self, embed_dim, **kwargs):
         super().__init__(**kwargs)
@@ -297,6 +309,13 @@ class PositionalEncoder(layers.Layer):
         encoded_positions = self.position_embedding(self.positions)
         encoded_tokens = encoded_tokens + encoded_positions
         return encoded_tokens
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "embed_dim": self.embed_dim,
+        })
+        return config
 
 def create_vivit_classifier(
     tubelet_embedder,
@@ -356,7 +375,7 @@ def buildNetwork():
     print (tf.__version__)
     print ("Calling buildNetwork", loaded_checkpoint)
     if loaded_checkpoint is not None:
-        model = keras.models.load_model(loaded_checkpoint, compile=False)         #TODO: change what checkpoint is being loaded
+        model = keras.models.load_model(loaded_checkpoint, compile=False, custom_objects={"TubeletEmbedding": TubeletEmbedding, "PositionalEncoder": PositionalEncoder})         #TODO: change what checkpoint is being loaded
         print ("Got past the model loading")
     else:
         model = create_vivit_classifier(
