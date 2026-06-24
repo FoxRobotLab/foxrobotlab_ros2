@@ -1,0 +1,38 @@
+phase2_topic_verifier:
+  ros__parameters:
+    timeout_sec: 20.0
+    report_period_sec: 2.0
+    exit_on_finish: true
+
+    require_robot_state: true
+    require_camera: true
+    require_compatibility_topics: true
+    require_event_compatibility_topics: false
+
+    publish_cmd_vel_probe: true
+    cmd_vel_probe_period_sec: 1.0
+
+    common_topics:
+      odom: "/robot/odom"
+      imu: "/robot/imu"
+      battery: "/robot/battery"
+      core: "/robot/kobuki/core"
+      color_image: "/robot/camera/color/image_raw"
+      depth_image: "/robot/camera/depth/image_raw"
+      safety_status: "/robot/safety_status"
+      state: "/robot/state"
+
+    compatibility_topics:
+      odom: "/foxrobotlab/raw/odom"
+      imu: "/foxrobotlab/raw/sensors/imu_data"
+      battery: "/foxrobotlab/raw/sensors/battery_state"
+      core: "/foxrobotlab/raw/sensors/core"
+      color_image: "/foxrobotlab/raw/color/image_raw"
+      depth_image: "/foxrobotlab/raw/depth/image_raw"
+      bumper: "/foxrobotlab/raw/events/bumper"
+      cliff: "/foxrobotlab/raw/events/cliff"
+      wheel_drop: "/foxrobotlab/raw/events/wheel_drop"
+
+    command_topics:
+      internal_cmd_vel: "/robot/cmd_vel"
+      native_cmd_vel: "/cmd_vel"
