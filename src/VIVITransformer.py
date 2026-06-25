@@ -331,7 +331,7 @@ def create_vivit_classifier(
     inputs = layers.Input(shape=input_shape)
     # Create patches.
     patches = tubelet_embedder(inputs)
-    # Encode patches.
+    # Encode patches. make a class which i can call.
     encoded_patches = positional_encoder(patches)
 
     # Create multiple layers of the Transformer block.
@@ -421,6 +421,62 @@ def train(epochs = 10):
         ]
     )
 
+
+class CellPredictModelVIVIT(object):
+    def __init__(self, check_point_folder=None, loaded_checkpoint=None):
+        """
+        Wrapper class for the ViViT Cell Predictor.
+        """
+        if loaded_checkpoint is not None:
+            self.loaded_checkpoint = str(check_point_folder) + "/" + loaded_checkpoint
+        else:
+            self.loaded_checkpoint = None
+
+        self.model = None
+
+    def buildNetwork(self):
+        """Loads the ViViT model using the custom Tubelet and Positional layers."""
+        print(f"Tensorflow version: {tf.__version__}")
+        print("Calling buildNetwork for ViViT, loading from:", self.loaded_checkpoint)
+
+        if self.loaded_checkpoint is not None:
+            self.model = keras.models.load_model(
+                self.loaded_checkpoint,
+                compile=False,
+                custom_objects={
+                    "TubeletEmbedding": TubeletEmbedding,
+                    "PositionalEncoder": PositionalEncoder
+                }
+            )
+            print("ViViT model loaded successfully.")
+            self.model.summary()
+        else:
+            print("Error: No checkpoint provided for ViViT model.")
+
+    def cleanImage(self, image, imageSize=224):
+        """Process a single image into the correct input form for 2020 model, mainly used for testing."""
+        shrunkenIm = cv2.resize(image, (imageSize, imageSize))
+        recoloredIm = cv2.cvtColor(shrunkenIm, cv2.COLOR_BGR2RGB)
+        processedIm = recoloredIm / 255.0
+        return processedIm
+
+    def predictSingleImageBatchAllData(self, images):
+        """Given a batch of images, converts it to be suitable for the network, then runs the model and returns
+        the resulting prediction as tuples of index of prediction and list of predictions."""
+        cleanImages = []
+        for image in images:
+            cleanImage = self.cleanImage(image, 224)
+            cleanImages.append(cleanImage)
+        listed = np.asarray([cleanImages])
+        modelPredict = self.model.predict(listed)
+        maxIndex = np.argmax(modelPredict)
+        return maxIndex, modelPredict[0]
+
+    def findTopX(self, x, numList):
+        """Returns the top X probabilities and their indices."""
+        topXInd = np.argsort(numList)[-x:][::-1]
+        topXPercs = numList[topXInd]
+        return topXPercs, topXInd
 
 
 if __name__ == "__main__":
