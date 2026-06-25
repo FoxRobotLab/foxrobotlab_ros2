@@ -17,6 +17,7 @@ find_package(kobuki_ros_interfaces REQUIRED)
 install(
   PROGRAMS
     src/phase2_topic_verifier.py
+    src/robot_control_processor_smoke.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

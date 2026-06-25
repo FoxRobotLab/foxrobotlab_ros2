@@ -265,6 +265,14 @@ Run the existing robot stack or driver/camera stack as usual, then run:
 ros2 launch robot_adapters tb2_receiver_compat_test.launch.py
 ```
 
+If the robot is running through a ROS Discovery Server, `ros2 topic list` may not show the active topics even when nodes are successfully exchanging messages. In that setup, use the subscriber-based Phase 2 verifier as the authoritative test:
+
+```bash
+ros2 launch test phase2_topic_verifier.launch.py
+```
+
+The verifier passes only after it receives real messages on the required `/robot/...` and temporary `/foxrobotlab/raw/...` streams. This is more reliable than graph inspection for the current Discovery Server setup.
+
 Check new common topics:
 
 ```bash
@@ -308,6 +316,26 @@ Acceptance criteria:
 - `/robot/scan` does not appear by default because `has_lidar: false`.
 - Existing Phase 1 state test still works.
 - No legacy launch files are changed yet.
+
+## Phase 3 Modular Planner Path
+
+Phase 3 adds a modular replacement for the legacy `TurtleControlProcessor`. The new processor lives in `robot_core` and consumes `/robot/...` topics instead of `/foxrobotlab/raw/...`. It publishes motion commands to `/robot/cmd_vel`.
+
+The legacy `turtle_control_processor.py`, `turtle_control_reciever.py`, and `foxrobotlab_ros2/launch/match_planner.launch.py` remain available as references.
+
+Run the modular processor smoke test after `tb2_system.launch.py` is already running:
+
+```bash
+ros2 launch test robot_control_processor_smoke.launch.py
+```
+
+Run the modular match planner path:
+
+```bash
+ros2 launch robot_bringup tb2_modular_match_planner.launch.py astra:=true
+```
+
+This launch starts the TurtleBot2 system and runs the existing `matchPlanner.py` with `FOX_USE_MODULAR_ROBOT_PROCESSOR=1`, so the planner uses `robot_core.RobotControlProcessor` instead of the legacy processor.
 
 ## How To Compare Old Receiver Vs New Adapter
 
