@@ -24,6 +24,7 @@ from src.match_seeker.scripts.olri_classifier.cnn_lstm_heading_model_2024 import
 from src.match_seeker.scripts.olri_classifier.cnn_transformer_cell_model_2024 import CellPredictModelCNNTransformer
 from src.match_seeker.scripts.olri_classifier.cnn_transformer_heading_model_2024 import HeadingPredictModelCNNTransformer
 
+from src.VIVITransformer import CellPredictModelVIVIT
 
 # Comment above and uncomment below if needed
 # sys.path.append('/home/macalester/PycharmProjects/catkin_ws/src/match_seeker/scripts') # handles weird import errors
@@ -37,6 +38,52 @@ from src.match_seeker.scripts.olri_classifier.cnn_transformer_heading_model_2024
 
 # uncomment to use CPU
 # os.environ['CUDA_VISIBLE_DEVICES'] = ''
+
+
+class ModelRunVIVIT(object):
+    """This builds the VIVIT model, where only the image is an input """
+    def __init__(self):
+        VIVIT_2026_CELL_CHECKPOINT = "2026CellPredictTransformer_checkpoint-0624260941/VIVIT-10-0.08.keras"
+        LSTM_2024_HEADING_CHECKPOINT = "2024HeadingPredict_checkpoint-0717241135/TestHeadingInCellPredAdam224Corrected-61-0.07.keras"
+
+        self.cellModel = CellPredictModelVIVIT(
+            check_point_folder=checkPts,
+            # Change this as needed
+            loaded_checkpoint=VIVIT_2026_CELL_CHECKPOINT
+        )
+        self.cellModel.buildNetwork()
+
+        self.headingModel = HeadingPredictModelLSTM(
+            checkpoint_folder=checkPts,
+            # Change this as needed
+            loaded_checkpoint=LSTM_2024_HEADING_CHECKPOINT
+        )
+        self.headingModel.buildNetwork()
+
+
+    def getPrediction(self, images, mapGraph):
+        potentialHeadings = [0, 45, 90, 135, 180, 225, 270, 315, 360]
+
+
+        lastHeading, headOutputPercs = self.headingModel.predictSingleImageBatchAllData(images)
+        bestHead = potentialHeadings[lastHeading]
+        newCell, cellOutPercs = self.cellModel.predictSingleImageBatchAllData(images)
+        # print(f"New cell: {newCell}")
+        # print(f"Last heading: {lastHeading}")
+
+        bestThreePercs, bestThreeInd = self.cellModel.findTopX(3, cellOutPercs)
+
+
+        best_cells_xy = []
+        for i, pred_cell in enumerate(bestThreeInd):
+            if bestThreePercs[i] >= 0.00:
+                predXY = mapGraph.getLocation(pred_cell)
+                pred_xyh = (predXY[0], predXY[1], bestHead)
+                best_cells_xy.append(pred_xyh)
+
+        best_scores = [s * 100 for s in bestThreePercs]
+
+        return best_scores, best_cells_xy
 
 
 class ModelRun2019(object):
