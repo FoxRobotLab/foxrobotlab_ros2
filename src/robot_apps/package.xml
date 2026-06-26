@@ -9,10 +9,17 @@
 
   <!-- Build Dependencies -->
   <buildtool_depend>ament_cmake</buildtool_depend>
+  <build_depend>ament_cmake_python</build_depend>
 
   <!-- Runtime Dependencies -->
   <exec_depend>rclpy</exec_depend>
   <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  
+  <exec_depend>cv_bridge</exec_depend>
+  <exec_depend>robot_core</exec_depend>
+
+  <exec_depend>kobuki_ros_interfaces</exec_depend>
   <exec_depend>lab_interfaces</exec_depend>
 
   <!-- Test Dependencies -->

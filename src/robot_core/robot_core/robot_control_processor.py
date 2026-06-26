@@ -5,13 +5,15 @@ import threading
 import time
 
 import numpy as np
-import rclpy
 from cv_bridge import CvBridge
+
+import rclpy
+from rclpy.node import Node
+
 from geometry_msgs.msg import Twist
 from kobuki_ros_interfaces.msg import SensorState
 from lab_interfaces.msg import SafetyStatus
 from nav_msgs.msg import Odometry
-from rclpy.node import Node
 from sensor_msgs.msg import BatteryState, Image, Imu
 from std_msgs.msg import String
 
@@ -57,6 +59,7 @@ class RobotControlProcessor(Node):
         self.image_served_count = 0
         self.movement_paused = False
 
+        # ----------------- Initialize Publishers and Subscribers -----------------
         self.status_publisher = self.create_publisher(
             String,
             "/foxrobotlab/processed/status_text",
@@ -132,6 +135,7 @@ class RobotControlProcessor(Node):
         self.safety_msg = msg
 
     # ========================= Public API ====================
+    # Odometry
     def getOdomData(self):
         raw_x, raw_y, raw_yaw = self.get_raw_odom()
         x, y = self.transform_raw_xy_to_map(raw_x, raw_y)
@@ -166,6 +170,7 @@ class RobotControlProcessor(Node):
 
         return rx, ry, dyaw
 
+    # Robot Status
     def getBumperStatus(self):
         if self.core_msg is not None:
             return self.core_msg.bumper
@@ -199,6 +204,7 @@ class RobotControlProcessor(Node):
             return self.battery_msg.percentage
         return 0
 
+    # Images and Depth for CNN Image Mapping
     def getImage(self, x=0, y=0, width=640, height=480):
         raw_image = self.wait_for_message(lambda: self.imageColor_msg, "color image")
         if raw_image is None:
@@ -218,6 +224,7 @@ class RobotControlProcessor(Node):
         numpy_array = np.asarray(cv_image)
         return numpy_array[y:y + height, x:x + width]
 
+    # Movement
     def pauseMovement(self):
         self.stop()
         self.movement_paused = True
@@ -261,6 +268,7 @@ class RobotControlProcessor(Node):
 
         self.stop()
 
+    # Shutdown
     def is_shutdown(self):
         return not rclpy.ok()
 
@@ -272,117 +280,6 @@ class RobotControlProcessor(Node):
         self.destroy_node()
         if self.owns_rclpy and rclpy.ok():
             rclpy.shutdown()
-
-    # ======================== Status Formatting ========================
-    def publish_status(self):
-        message = String()
-        message.data = self.build_status_text()
-        self.status_publisher.publish(message)
-
-    def build_status_text(self):
-        sections = [
-            "FOX ROBOT LAB MODULAR ROBOT CONTROL",
-            "===================================",
-            "",
-            self.format_odometry(),
-            "",
-            self.format_imu(),
-            "",
-            self.format_battery(),
-            "",
-            self.format_core(),
-            "",
-            self.format_safety(),
-            "",
-            self.format_images(),
-        ]
-        return "\n".join(sections)
-
-    def format_odometry(self):
-        odom = self.odom_msg
-        if odom is None:
-            return "ODOMETRY\nwaiting..."
-
-        x, y, yaw = self.getOdomData()
-        linear_vel = odom.twist.twist.linear
-        angular_vel = odom.twist.twist.angular
-
-        return (
-            "ODOMETRY\n"
-            f"x: {x:.3f} m\n"
-            f"y: {y:.3f} m\n"
-            f"yaw: {yaw:.2f} deg\n"
-            f"linear x: {linear_vel.x:.3f} m/s\n"
-            f"linear y: {linear_vel.y:.3f} m/s\n"
-            f"angular z: {math.degrees(angular_vel.z):.3f} deg/s"
-        )
-
-    def format_imu(self):
-        if self.imu_msg is None:
-            return "IMU\nwaiting..."
-
-        linear_accel = self.imu_msg.linear_acceleration
-        angular_vel = self.imu_msg.angular_velocity
-
-        return (
-            "IMU\n"
-            f"linear accel x: {linear_accel.x:.3f} m/s^2\n"
-            f"linear accel y: {linear_accel.y:.3f} m/s^2\n"
-            f"yaw rate z: {angular_vel.z:.3f} rad/s"
-        )
-
-    def format_battery(self):
-        if self.battery_msg is None:
-            return "BATTERY\nwaiting..."
-
-        percentage = "unknown"
-        if self.battery_msg.percentage >= 0.0:
-            percentage = f"{self.battery_msg.percentage * 100.0:.1f}%"
-
-        return (
-            "BATTERY\n"
-            f"voltage: {self.battery_msg.voltage:.2f} V\n"
-            f"percentage: {percentage}"
-        )
-
-    def format_core(self):
-        if self.core_msg is None:
-            return "KOBUKI CORE\nwaiting..."
-
-        return (
-            "KOBUKI CORE\n"
-            f"raw battery: {self.core_msg.battery}\n"
-            f"bumper bitmask: {self.core_msg.bumper}\n"
-            f"wheel drop bitmask: {self.core_msg.wheel_drop}\n"
-            f"cliff bitmask: {self.core_msg.cliff}"
-        )
-
-    def format_safety(self):
-        if self.safety_msg is None:
-            return "SAFETY\nwaiting..."
-
-        return (
-            "SAFETY\n"
-            f"bumper pressed: {self.safety_msg.bumper_pressed}\n"
-            f"wheel drop: {self.safety_msg.wheel_drop_detected}\n"
-            f"cliff: {self.safety_msg.cliff_detected}\n"
-            f"hazard: {self.safety_msg.hazard_detected}\n"
-            f"status: {self.safety_msg.status_message}"
-        )
-
-    def format_images(self):
-        color = self.format_image_info(self.imageColor_msg)
-        depth = self.format_image_info(self.imageDepth_msg)
-        return (
-            "IMAGE TOPICS\n"
-            f"color: {color}\n"
-            f"depth: {depth}"
-        )
-
-    def format_image_info(self, image):
-        if image is None:
-            return "waiting..."
-        return f"{image.width}x{image.height} {image.encoding}"
 
     # ======================== Helper Methods ========================
     def get_raw_odom(self):

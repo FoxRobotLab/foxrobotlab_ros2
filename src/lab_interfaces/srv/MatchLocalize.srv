@@ -1,0 +1,13 @@
+sensor_msgs/Image image
+
+float64 odom_x
+float64 odom_y
+float64 odom_yaw
+---
+bool matched
+string status
+int32 node
+float64 x
+float64 y
+float64 yaw
+float32 confidence

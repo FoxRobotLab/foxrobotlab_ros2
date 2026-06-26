@@ -16,14 +16,15 @@ Hardware / Simulation
 
 ## Current Phase
 
-Phase 2 is proving that `robot_adapters/tb2_adapter.py` can replace the forwarding behavior of `foxrobotlab_ros2/src/turtle_control_reciever.py`.
+Phase 4 is the current planning phase. Phase 3 hardware testing confirmed that the modular planner path can run against the TurtleBot2 using `/robot/...` topics, so the next work is to migrate the match planner application structure out of legacy `foxrobotlab_ros2` patterns and into ROS-native application nodes.
 
-Current Phase 2 goal:
+Current Phase 4 goal:
 
-- Publish new common `/robot/...` sensor topics.
-- Temporarily keep `/foxrobotlab/raw/...` compatibility topics alive for old code.
-- Keep native topic names in adapter YAML files.
-- Do not change legacy launch files until adapter equivalence has been tested on hardware.
+- Keep the working Phase 1-3 base, adapter, core, and modular processor paths intact.
+- Treat ROS Discovery Server as the default multi-computer communication layer.
+- Stop designing new work around the old socket server-client setup from `foxrobotlab_ros2`.
+- Use subscriber-based tests in the `test` package to prove topic traffic, because `ros2 topic list` can be unreliable under the Discovery Server setup.
+- Begin planning how `matchPlanner.py` and its imported modules should move into `robot_apps` as ROS-aware application code.
 
 ## Current Packages
 
@@ -337,6 +338,62 @@ ros2 launch robot_bringup tb2_modular_match_planner.launch.py astra:=true
 
 This launch starts the TurtleBot2 system and runs the existing `matchPlanner.py` with `FOX_USE_MODULAR_ROBOT_PROCESSOR=1`, so the planner uses `robot_core.RobotControlProcessor` instead of the legacy processor.
 
+## Phase 4 Application Migration Plan
+
+Phase 4 should migrate the match planner from a legacy script stack into `robot_apps` without changing the algorithm all at once. The best first version is a hybrid design:
+
+- Keep the existing Python planning, localization, map, and movement logic as normal Python modules.
+- Wrap the parts that need robot I/O, lifecycle, status, and inter-process communication in ROS 2 nodes.
+- Use ROS topics, services, parameters, and launch files instead of the old socket server-client setup.
+- Keep the legacy `foxrobotlab_ros2` planner code available as a reference until the modular app path is tested on hardware.
+
+Recommended new layout:
+
+```text
+robot_apps/
+  src/
+    match_planner/
+      __init__.py
+      planner_node.py
+      movement_node.py
+      localization_node.py
+      map_provider.py
+      legacy/
+        copied_or_adapted_algorithm_modules.py
+  config/
+    match_planner.yaml
+  launch/
+    tb2_match_planner.launch.py
+```
+
+The first Phase 4 implementation should not try to make every imported planner module a separate ROS node. That would be a large rewrite and would make debugging harder. Instead, start with one ROS node that owns the planner loop and imports the existing Python modules internally. Then split pieces into separate nodes only when there is a clear communication boundary.
+
+Good ROS node boundaries for later:
+
+- Planner node: decides the next navigation behavior or movement request.
+- Movement node: turns planner requests into safe `/robot/cmd_vel` commands.
+- Localization node: owns camera/localization state and publishes common localization results.
+- Map provider node: loads map files and provides map or graph data through services.
+- UI/status node: publishes planner state for monitoring.
+
+This keeps the code familiar while moving the architecture in the right direction. The planner can still use Python data structures internally for maps, particles, path choices, image results, and state machines. ROS should be used for communication between major robot capabilities, not for every local helper function.
+
+### ROS Discovery Server Design Change
+
+The old `foxrobotlab_ros2` socket server-client setup is now considered legacy. New architecture work should assume that robot, workstation, and test nodes communicate through ROS 2 with the ROS Discovery Server configured correctly.
+
+Important testing note: under the current Discovery Server setup, `ros2 topic list` may not show the full graph even when messages are being transmitted successfully. Do not use topic-list visibility as the main acceptance test. Use subscriber-based tests from the `test` package instead.
+
+Preferred verification flow:
+
+```bash
+ros2 launch robot_bringup tb2_system.launch.py astra:=true
+ros2 launch test phase2_topic_verifier.launch.py
+ros2 launch test robot_control_processor_smoke.launch.py
+```
+
+These tests prove that real messages are being received on the expected topics. That is stronger evidence than graph inspection for this workspace.
+
 ## How To Compare Old Receiver Vs New Adapter
 
 Old receiver flow:
@@ -419,26 +476,37 @@ robot_apps
   -> native driver command topic
 ```
 
-### Phase 4: Add Reusable Core Services
+### Phase 4: Migrate Match Planner Into `robot_apps`
+
+Status: current phase.
+
+- Move match planner application code toward `robot_apps`.
+- Keep algorithm modules as ordinary Python where that is simpler.
+- Convert robot communication, launch configuration, and runtime status into ROS nodes.
+- Replace socket server-client assumptions with ROS Discovery Server communication.
+- Use the `test` package for subscriber-based verification instead of relying on `ros2 topic list`.
+- Do not remove the legacy `foxrobotlab_ros2` planner path until the modular app path works on hardware.
+
+### Phase 5: Add Reusable Core Services
 
 - Add a command mux.
 - Add safety command gating.
 - Add reusable status reporting.
 - Keep localization and experiment-specific behavior outside the core unless it is robot-agnostic infrastructure.
 
-### Phase 5: Migrate Applications
+### Phase 6: Finish Application Migration
 
 - Port match planner behavior into `robot_apps` or a dedicated application package.
 - Make application code consume `/robot/state`, `/robot/odom`, `/robot/safety_status`, and future common camera topics.
 - Make application code publish commands only through the common command path.
 
-### Phase 6: Migrate Client-Server Code
+### Phase 7: Retire Socket Client-Server Paths
 
-- Keep client-server code in `foxrobotlab_ros2` until the base stack is stable.
-- Update bridges to consume `/robot/...` topics.
-- Move reusable networking/protocol code into a future package only after the interfaces are clear.
+- Keep old socket client-server code in `foxrobotlab_ros2` only as a reference while the modular ROS path is validated.
+- Do not build new application features on the socket protocol.
+- Remove or archive the socket path after ROS Discovery Server operation and modular planner tests are reliable.
 
-### Phase 7: Add ML And Localization Packages
+### Phase 8: Add ML And Localization Packages
 
 - Create `robot_ml` for CNN model integration and camera-based localization.
 - Keep CNN dependencies optional.
@@ -452,27 +520,27 @@ Possible topics:
 /robot/localization/candidates
 ```
 
-### Phase 8: Add Navigation
+### Phase 9: Add Navigation
 
 - Create `robot_navigation` for Nav2 configuration, maps, costmaps, RViz, and navigation launch files.
 - Route Nav2 command output through the common command mux and safety gate.
 - Do not let Nav2 bypass `/robot/cmd_vel`.
 
-### Phase 9: Add TurtleBot4 And Simulation
+### Phase 10: Add TurtleBot4 And Simulation
 
 - Add `tb4_adapter` and `tb4_topics.yaml` under `robot_adapters`.
 - Add TurtleBot4 bringup launch files.
 - Add `robot_simulation` for Gazebo after hardware layering is stable.
 - Require simulation to satisfy the same `/robot/...` interface contract.
 
-### Phase 10: Retire `foxrobotlab_ros2`
+### Phase 11: Retire `foxrobotlab_ros2`
 
 Retire or archive the old package when:
 
 - No launch file depends on `foxrobotlab_ros2`.
 - No active app subscribes to `/foxrobotlab/raw/...`.
 - No active app publishes directly to native velocity topics.
-- Client-server code uses `/robot/...`.
+- Socket client-server code has been removed, archived, or replaced by ROS-native communication.
 - Localization and CNN code live in dedicated architecture packages.
 
 ## Phase 1 Notes

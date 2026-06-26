@@ -1,0 +1,11 @@
+bool use_current_pose
+
+int32 node
+
+float64 x
+float64 y
+float64 yaw
+
+---
+bool accepted
+string message

@@ -7,16 +7,22 @@ endif()
 
 # ------------------- Find Dependencies -------------------
 find_package(ament_cmake REQUIRED)
+
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+
 find_package(rosidl_default_generators REQUIRED)
 
 # ------------------- Generate Interfaces -------------------
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/SafetyStatus.msg"
   "msg/RobotState.msg"
+  "msg/MatchPlannerStatus.msg"
+  "srv/MatchLocalize.srv"
+  "srv/SetMatchPlannerGoal.srv"
+  "srv/SetMatchPlannerStart.srv"
   DEPENDENCIES
     std_msgs
     geometry_msgs

@@ -1,0 +1,4 @@
+int32 destination_node
+---
+bool accepted
+string message
