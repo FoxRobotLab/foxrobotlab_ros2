@@ -31,15 +31,18 @@ class RobotProcessor(Node):
         self.last_odom_time = None
         self.last_scan_time = None
 
+        # ---------------- Initialize Publishers and Subscribers ----------------
         self.state_pub = self.create_publisher(
             RobotState, self.get_parameter("state_topic").value, QOS
         )
+
         self.create_subscription(
             Odometry,
             self.get_parameter("odom_topic").value,
             self._odom_callback,
             QOS,
         )
+
         if self.use_scan:
             self.create_subscription(
                 LaserScan,
@@ -47,6 +50,7 @@ class RobotProcessor(Node):
                 self._scan_callback,
                 QOS,
             )
+
         self.create_subscription(
             SafetyStatus,
             self.get_parameter("safety_topic").value,
@@ -60,6 +64,7 @@ class RobotProcessor(Node):
 
         self.get_logger().info("Robot processor started.")
 
+    # ---------------- Callback Functions ----------------
     def _odom_callback(self, msg):
         self.last_odom = msg
         self.last_odom_time = self.get_clock().now()

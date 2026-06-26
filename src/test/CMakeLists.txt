@@ -5,7 +5,7 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-# find dependencies
+# ------------------- Find Dependencies -------------------
 find_package(ament_cmake REQUIRED)
 find_package(rclpy REQUIRED)
 find_package(geometry_msgs REQUIRED)
@@ -14,6 +14,7 @@ find_package(sensor_msgs REQUIRED)
 find_package(lab_interfaces REQUIRED)
 find_package(kobuki_ros_interfaces REQUIRED)
 
+# ------------------- Python Executables -------------------
 install(
   PROGRAMS
     src/phase2_topic_verifier.py
@@ -21,6 +22,7 @@ install(
   DESTINATION lib/${PROJECT_NAME}
 )
 
+# ------------------- Config and Launch Files -------------------
 install(
   DIRECTORY launch config
   DESTINATION share/${PROJECT_NAME}

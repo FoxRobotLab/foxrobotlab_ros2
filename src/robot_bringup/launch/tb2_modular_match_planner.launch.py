@@ -10,6 +10,30 @@ from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.substitutions import FindPackageShare
 
 
+# ---------------- Helper Functions ----------------
+def include_launch(package_name, launch_file, launch_arguments=None):
+    return IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            PathJoinSubstitution([
+                FindPackageShare(package_name),
+                "launch",
+                launch_file,
+            ])
+        ),
+        launch_arguments=(launch_arguments or {}).items(),
+    )
+
+
+def declare_launch_arguments():
+    return [
+        DeclareLaunchArgument("namespace", default_value=""),
+        DeclareLaunchArgument("astra", default_value="true"),
+        DeclareLaunchArgument("xtion", default_value="false"),
+        DeclareLaunchArgument("lidar_a2", default_value="false"),
+        DeclareLaunchArgument("lidar_s2", default_value="false"),
+    ]
+
+
 def _load_match_planner_config():
     package_dir = get_package_share_directory("foxrobotlab_ros2")
     config_path = os.path.join(package_dir, "config", "match_planner.yaml")
@@ -24,18 +48,32 @@ def _as_env(value):
 
 
 def generate_launch_description():
+    ld = LaunchDescription()
+
+    # ---------------- Get Launch Configurations ----------------
+    # Load the hardware options passed down to tb2_system.launch.py.
     namespace = LaunchConfiguration("namespace")
     astra = LaunchConfiguration("astra")
     xtion = LaunchConfiguration("xtion")
     lidar_a2 = LaunchConfiguration("lidar_a2")
     lidar_s2 = LaunchConfiguration("lidar_s2")
 
-    config = _load_match_planner_config()
-    remote_localizer = config["remote_localizer"]
-    planner = config["planner"]
-    gui_status_bridge = config["gui_status_bridge"]
-    gui_command_server = config["gui_command_server"]
+    # ---------------- Include Launch Files ----------------
+    # Start the full TurtleBot2 modular system before the planner.
+    system = include_launch(
+        "robot_bringup",
+        "tb2_system.launch.py",
+        {
+            "namespace": namespace,
+            "astra": astra,
+            "xtion": xtion,
+            "lidar_a2": lidar_a2,
+            "lidar_s2": lidar_s2,
+        },
+    )
 
+    # ---------------- Configure Match Planner ----------------
+    # Find matchPlanner.py from the installed foxrobotlab_ros2 share directory.
     foxrobotlab_dir = get_package_share_directory("foxrobotlab_ros2")
     match_planner = os.path.join(
         foxrobotlab_dir,
@@ -45,23 +83,15 @@ def generate_launch_description():
         "matchPlanner.py",
     )
 
-    system = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            PathJoinSubstitution([
-                FindPackageShare("robot_bringup"),
-                "launch",
-                "tb2_system.launch.py",
-            ])
-        ),
-        launch_arguments={
-            "namespace": namespace,
-            "astra": astra,
-            "xtion": xtion,
-            "lidar_a2": lidar_a2,
-            "lidar_s2": lidar_s2,
-        }.items(),
-    )
+    # Load YAML settings used by matchPlanner.py and client-server helpers.
+    config = _load_match_planner_config()
+    remote_localizer = config["remote_localizer"]
+    planner = config["planner"]
+    gui_status_bridge = config["gui_status_bridge"]
+    gui_command_server = config["gui_command_server"]
 
+    # ---------------- Initialize Processes ----------------
+    # Run matchPlanner.py with the modular RobotControlProcessor enabled.
     planner_process = ExecuteProcess(
         cmd=[sys.executable, match_planner],
         additional_env={
@@ -83,12 +113,12 @@ def generate_launch_description():
         output="screen",
     )
 
-    return LaunchDescription([
-        DeclareLaunchArgument("namespace", default_value=""),
-        DeclareLaunchArgument("astra", default_value="true"),
-        DeclareLaunchArgument("xtion", default_value="false"),
-        DeclareLaunchArgument("lidar_a2", default_value="false"),
-        DeclareLaunchArgument("lidar_s2", default_value="false"),
-        system,
-        planner_process,
-    ])
+    # ---------------- Add to Launch Description ----------------
+    # Add arguments first so they are available to included launch files.
+    for arg in declare_launch_arguments():
+        ld.add_action(arg)
+
+    ld.add_action(system)
+    ld.add_action(planner_process)
+
+    return ld

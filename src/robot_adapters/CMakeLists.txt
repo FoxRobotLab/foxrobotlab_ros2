@@ -21,7 +21,7 @@ install(
   DESTINATION lib/${PROJECT_NAME}
 )
 
-# ------------------- Config Files Visibility -------------------
+# ------------------- Config and Launch Files -------------------
 install(
   DIRECTORY launch config
   DESTINATION share/${PROJECT_NAME}

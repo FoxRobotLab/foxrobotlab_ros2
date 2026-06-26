@@ -5,18 +5,18 @@ from launch.substitutions import PathJoinSubstitution
 
 
 def generate_launch_description():
-
-    # Create a new launch description
     ld = LaunchDescription()
 
-    # Load the configuration file
+    # ---------------- Get Parameters ----------------
+    # Load the default TurtleBot2 adapter configuration file.
     config_file = PathJoinSubstitution([
         FindPackageShare("robot_adapters"),
         "config",
         "tb2_topics.yaml",
     ])
 
-    # Create the TurtleBot2 adapter node that uses the loaded configuration file.
+    # ---------------- Initialize Nodes ----------------
+    # Start only the adapter for compatibility testing against an existing robot stack.
     tb2_adapter_node = Node(
         package="robot_adapters",
         executable="tb2_adapter.py",
@@ -25,7 +25,8 @@ def generate_launch_description():
         parameters=[config_file],
     )
 
-    # add node to launch description
+    # ---------------- Add to Launch Description ----------------
+    # Add the compatibility-test adapter node.
     ld.add_action(tb2_adapter_node)
 
     return ld

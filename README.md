@@ -190,7 +190,7 @@ ros2 launch robot_bringup tb2_system.launch.py astra:=true lidar_a2:=false lidar
 Print robot state:
 
 ```bash
-ros2 launch robot_apps tb2_state_test.launch.py
+ros2 launch test tb2_state_test.launch.py
 ```
 
 Careful slow-drive command path test:
@@ -242,7 +242,7 @@ Not changed yet:
 Use this launch file when the native robot/camera stack is already running and you want to verify that the new adapter can provide both new and legacy topic outputs:
 
 ```bash
-ros2 launch robot_adapters tb2_receiver_compat_test.launch.py
+ros2 launch test phase2_adapter_compat_test.launch.py
 ```
 
 This launch starts only `tb2_adapter.py` with `tb2_topics.yaml`. It does not start `kobuki_node`, camera drivers, or legacy `foxrobotlab_ros2` nodes.
@@ -262,7 +262,7 @@ source install/setup.bash
 Run the existing robot stack or driver/camera stack as usual, then run:
 
 ```bash
-ros2 launch robot_adapters tb2_receiver_compat_test.launch.py
+ros2 launch test phase2_adapter_compat_test.launch.py
 ```
 
 If the robot is running through a ROS Discovery Server, `ros2 topic list` may not show the active topics even when nodes are successfully exchanging messages. In that setup, use the subscriber-based Phase 2 verifier as the authoritative test:
@@ -362,7 +362,7 @@ ros2 run foxrobotlab_ros2 turtle_control_reciever.py
 ros2 topic echo /foxrobotlab/raw/sensors/battery_state
 
 # New path
-ros2 launch robot_adapters tb2_receiver_compat_test.launch.py
+ros2 launch test phase2_adapter_compat_test.launch.py
 ros2 topic echo /robot/battery
 ros2 topic echo /foxrobotlab/raw/sensors/battery_state
 ```

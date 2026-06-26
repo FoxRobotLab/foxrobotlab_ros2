@@ -28,19 +28,19 @@ def generate_launch_description():
     system = include_launch("robot_bringup", "tb2_system.launch.py")
 
     # ---------------- Get Parameters ----------------
-    # Load simple drive app parameters.
+    # Load state printer app parameters.
     config_file = PathJoinSubstitution([
         FindPackageShare("robot_apps"),
         "config",
-        "simple_drive.yaml",
+        "state_printer.yaml",
     ])
 
     # ---------------- Initialize Nodes ----------------
-    # Start the simple drive app.
+    # Start the robot state printer app.
     app = Node(
         package="robot_apps",
-        executable="simple_drive_app.py",
-        name="simple_drive_app",
+        executable="print_robot_state_app.py",
+        name="print_robot_state_app",
         output="screen",
         parameters=[config_file],
     )
