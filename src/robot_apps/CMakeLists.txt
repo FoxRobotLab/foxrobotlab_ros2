@@ -24,15 +24,35 @@ ament_python_install_package(robot_apps)
 # ------------------- Python Executables -------------------
 install(
   PROGRAMS
-    src/print_robot_state_app.py
-    src/simple_drive_app.py
+    robot_apps/simple_drive/simple_drive_app.py
+    robot_apps/state_printer/print_robot_state_app.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
-# ------------------- Config and Launch Files -------------------
+# ------------------- Launch Files -------------------
 install(
-  DIRECTORY launch config
+  DIRECTORY launch
   DESTINATION share/${PROJECT_NAME}
+  PATTERN "__pycache__" EXCLUDE
+)
+
+# ------------------- Application Config and Resource Files -------------------
+# Simple Drive App
+install(
+  DIRECTORY robot_apps/simple_drive/config
+  DESTINATION share/${PROJECT_NAME}/apps/simple_drive
+)
+
+# State Printer App
+install(
+  DIRECTORY robot_apps/state_printer/config
+  DESTINATION share/${PROJECT_NAME}/apps/state_printer
+)
+
+# Match Planner App [MAIN APPLICATION]
+install(
+  DIRECTORY robot_apps/match_planner/res
+  DESTINATION share/${PROJECT_NAME}/apps/match_planner
 )
 
 ament_package()

@@ -31,6 +31,8 @@ def generate_launch_description():
     # Load state printer app parameters.
     config_file = PathJoinSubstitution([
         FindPackageShare("robot_apps"),
+        "apps",
+        "state_printer",
         "config",
         "state_printer.yaml",
     ])

@@ -31,6 +31,8 @@ def generate_launch_description():
     # Load simple drive app parameters.
     config_file = PathJoinSubstitution([
         FindPackageShare("robot_apps"),
+        "apps",
+        "simple_drive",
         "config",
         "simple_drive.yaml",
     ])
