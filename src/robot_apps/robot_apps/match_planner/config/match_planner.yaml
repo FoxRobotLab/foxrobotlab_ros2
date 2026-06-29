@@ -1,0 +1,15 @@
+match_planner_node:
+  ros__parameters:
+    status_topic: "/robot_apps/match_planner/status"
+    set_start_service: "/robot_apps/match_planner/set_start"
+    set_goal_service: "/robot_apps/match_planner/set_goal"
+    localize_service: "/robot_apps/match_planner/localize"
+    match_loop_period_sec: 0.1
+    start_paused: true
+    display_windows: false
+    log_to_file: true
+    log_to_console: true
+
+localizer_stub_node:
+  ros__parameters:
+    localize_service: "/robot_apps/match_planner/localize"
