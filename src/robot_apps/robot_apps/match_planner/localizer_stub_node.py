@@ -5,26 +5,29 @@ from rclpy.node import Node
 
 from lab_interfaces.srv import MatchLocalize
 
+
 class LocalizerStubNode(Node):
     def __init__(self):
         super().__init__(
-            'localizer_stub',
-            automatically_declare_parameters_from_overrides=True
-            )
-        
-        
-        localize_service = self.get_parameter('localize_service').value()
-        
+            "localizer_stub_node",
+            automatically_declare_parameters_from_overrides=True,
+        )
+
+        # match_planner.yaml is the source of truth for service names.
+        localize_service = self.get_parameter("localize_service").value
+
+        # ------------------- Initialize Services -------------------
         self.localize_service = self.create_service(
             MatchLocalize,
             localize_service,
-            self.localize_callback
+            self.localize_callback,
         )
 
         self.get_logger().info(
-            f"Localizer stub node started. Service '{localize_service}' is ready to receive requests."
+            f"Localizer stub ready on {localize_service}; returning no-match responses."
         )
 
+    # ------------------- Service Callbacks -------------------
     def localize_callback(self, request, response):
         response.matched = False
         response.status = "localizer stub active; no match produced"
