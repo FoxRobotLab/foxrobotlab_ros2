@@ -3,14 +3,18 @@ from sklearn.model_selection import train_test_split
 
 # --- 1. SIMULATE YOUR DATA STRUCTURE ---
 # Let's say you have 55 runs and 200 distinct location patches
+# We need to update this to the actual numbers for our data, I gave Gemini vague estimates
 NUM_RUNS = 55
 NUM_LOCATIONS = 200
 
 # unique IDs for your 55 runs
+# Not sure that we need this
 run_ids = [f"run_{i:02d}" for i in range(NUM_RUNS)]
 
 # Create a binary matrix [55, 200] indicating which locations are in which run
 # 1 if the run passes through that 2x2m patch, 0 otherwise
+# This code is a placeholder, here is where we would need to call something that collects the information
+# from the AnnotData folder
 np.random.seed(42)  # For reproducibility
 run_location_matrix = np.random.randint(0, 2, size=(NUM_RUNS, NUM_LOCATIONS))
 
