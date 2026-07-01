@@ -18,16 +18,18 @@ match_planner_node:
     turn_timeout_sec: 8.0
     max_turn_angle_deg: 90.0
     display_windows: false
-    log_to_file: true
-    log_to_console: true
+    log_to_file: false
+    log_to_console: false
 
 localizer_stub_node:
   ros__parameters:
     localize_service: "/robot_apps/match_planner/localize"
-    stub_matched: false
-    stub_node: -1
-    stub_x: 0.0
-    stub_y: 0.0
-    stub_yaw: 0.0
-    stub_confidence: 0.0
-    stub_status: "localizer stub active; no match produced"
+    stub_confidence: 0.95
+    stub_node_sequence: [1, 5]
+    stub_x_sequence: [0.0, 0.0]
+    stub_y_sequence: [0.0, 0.0]
+    stub_yaw_sequence: [0.0, 0.0]
+    stub_confidence_sequence: [0.95, 0.95]
+    stub_status_sequence:
+      - "localizer stub matched start node"
+      - "localizer stub matched destination node"

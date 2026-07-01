@@ -27,6 +27,7 @@ install(
     robot_apps/simple_drive/simple_drive_app.py
     robot_apps/state_printer/print_robot_state_app.py
     robot_apps/match_planner/localizer_stub_node.py
+    robot_apps/match_planner/match_planner_node.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

@@ -17,6 +17,7 @@ find_package(kobuki_ros_interfaces REQUIRED)
 # ------------------- Python Executables -------------------
 install(
   PROGRAMS
+    src/match_planner_shell_verifier.py
     src/phase2_topic_verifier.py
     src/robot_control_processor_smoke.py
   DESTINATION lib/${PROJECT_NAME}
