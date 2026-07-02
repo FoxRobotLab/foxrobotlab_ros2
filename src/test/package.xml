@@ -18,6 +18,7 @@
   <exec_depend>lab_interfaces</exec_depend>
   <exec_depend>kobuki_ros_interfaces</exec_depend>
   <exec_depend>robot_core</exec_depend>
+  <exec_depend>robot_apps</exec_depend>
 
   <!-- Test Dependencies -->
   <test_depend>ament_lint_auto</test_depend>

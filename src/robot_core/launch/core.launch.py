@@ -22,6 +22,13 @@ def generate_launch_description():
         "safety_params.yaml",
     ])
 
+    # Load command mux parameters.
+    command_mux_params = PathJoinSubstitution([
+        FindPackageShare("robot_core"),
+        "config",
+        "command_mux.yaml",
+    ])
+
     # ---------------- Initialize Nodes ----------------
     # Start the robot state processor.
     robot_processor = Node(
@@ -41,9 +48,19 @@ def generate_launch_description():
         parameters=[safety_params],
     )
 
+    # Start the reusable command mux and safety gate.
+    command_mux = Node(
+        package="robot_core",
+        executable="command_mux.py",
+        name="command_mux",
+        output="screen",
+        parameters=[command_mux_params],
+    )
+
     # ---------------- Add to Launch Description ----------------
     # Add core nodes to the launch description.
     ld.add_action(robot_processor)
     ld.add_action(safety_monitor)
+    ld.add_action(command_mux)
 
     return ld

@@ -1,0 +1,14 @@
+match_planner_shell_verifier:
+  ros__parameters:
+    status_topic: "/robot_apps/match_planner/status"
+    set_start_service: "/robot_apps/match_planner/set_start"
+    set_goal_service: "/robot_apps/match_planner/set_goal"
+    timeout_sec: 20.0
+    report_period_sec: 2.0
+    exit_on_finish: true
+    start_node: 1
+    destination_node: 5
+    require_dry_run_decision: true
+    require_arrival: true
+    require_turn_intent: false
+    require_guarded_turn_result: false

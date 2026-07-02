@@ -1,0 +1,33 @@
+match_planner_node:
+  ros__parameters:
+    status_topic: "/robot_apps/match_planner/status"
+    set_start_service: "/robot_apps/match_planner/set_start"
+    set_goal_service: "/robot_apps/match_planner/set_goal"
+    localize_service: "/robot_apps/match_planner/localize"
+    match_loop_period_sec: 0.1
+    start_paused: true
+    localize_while_idle: false
+    load_map: true
+    enable_movement: false
+    enable_turning: false
+    enable_potential_field: false
+    turn_threshold_deg: 30.0
+    hard_turn_threshold_deg: 90.0
+    depth_image_width: 640
+    depth_image_height: 480
+    turn_timeout_sec: 8.0
+    max_turn_angle_deg: 90.0
+    display_windows: false
+    log_to_file: true
+    log_to_console: true
+
+localizer_stub_node:
+  ros__parameters:
+    localize_service: "/robot_apps/match_planner/localize"
+    stub_matched: false
+    stub_node: -1
+    stub_x: 0.0
+    stub_y: 0.0
+    stub_yaw: 0.0
+    stub_confidence: 0.0
+    stub_status: "localizer stub active; no match produced"

@@ -1,0 +1,9 @@
+command_mux_verifier:
+  ros__parameters:
+    timeout_sec: 8.0
+    app_cmd_vel_topic: "/robot/apps/cmd_vel"
+    output_cmd_vel_topic: "/robot/cmd_vel"
+    safety_topic: "/robot/safety_status"
+    status_topic: "/robot/command_mux/status"
+    command_timeout_sec: 0.5
+    publish_rate_hz: 10.0

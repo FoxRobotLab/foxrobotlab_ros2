@@ -23,6 +23,7 @@ ament_python_install_package(${PROJECT_NAME})
 # --------------- Python Executables ---------------
 install(
   PROGRAMS
+    src/command_mux.py
     src/robot_processor.py
     src/safety_monitor.py
   DESTINATION lib/${PROJECT_NAME}

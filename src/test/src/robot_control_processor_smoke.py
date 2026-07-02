@@ -57,7 +57,7 @@ def main():
         logger.info(f"PASS getOdomData returned {odom}")
         logger.info(f"PASS getImage returned shape={image.shape} count={image_count}")
         logger.info(f"PASS getDepth returned shape={depth.shape}")
-        logger.info("PASS zero command published through /robot/cmd_vel")
+        logger.info("PASS zero command published through /robot/apps/cmd_vel")
 
     processor.shutdown()
     if failed:

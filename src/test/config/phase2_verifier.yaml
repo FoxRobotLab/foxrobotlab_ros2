@@ -34,5 +34,5 @@ phase2_topic_verifier:
       wheel_drop: "/foxrobotlab/raw/events/wheel_drop"
 
     command_topics:
-      internal_cmd_vel: "/robot/cmd_vel"
+      internal_cmd_vel: "/robot/apps/cmd_vel"
       native_cmd_vel: "/cmd_vel"

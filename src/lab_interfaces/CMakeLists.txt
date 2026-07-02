@@ -20,6 +20,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/SafetyStatus.msg"
   "msg/RobotState.msg"
   "msg/MatchPlannerStatus.msg"
+  "msg/CommandMuxStatus.msg"
   "srv/MatchLocalize.srv"
   "srv/SetMatchPlannerGoal.srv"
   "srv/SetMatchPlannerStart.srv"

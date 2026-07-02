@@ -53,7 +53,7 @@ class SafetyMonitor(Node):
         self.get_logger().warn(
             f"Robot safety condition active: {', '.join(active_conditions)}"
         )
-        # Future work: gate /robot/cmd_vel here or in a dedicated command mux.
+        # Command enforcement lives in command_mux.py; this node remains an observer.
 
 
 def main(args=None):

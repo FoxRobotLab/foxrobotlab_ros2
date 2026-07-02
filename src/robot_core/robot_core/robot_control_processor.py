@@ -65,7 +65,7 @@ class RobotControlProcessor(Node):
             "/foxrobotlab/processed/status_text",
             QOS,
         )
-        self.move_publisher = self.create_publisher(Twist, "/robot/cmd_vel", QOS)
+        self.move_publisher = self.create_publisher(Twist, "/robot/apps/cmd_vel", QOS)
 
         self.create_subscription(
             Image,
@@ -101,7 +101,7 @@ class RobotControlProcessor(Node):
             self.spin_thread.start()
 
         self.get_logger().info(
-            "RobotControlProcessor using modular /robot topics and /robot/cmd_vel."
+            "RobotControlProcessor using modular /robot topics and /robot/apps/cmd_vel."
         )
 
     # =================== Callbacks =======================
@@ -133,6 +133,20 @@ class RobotControlProcessor(Node):
         if msg.wheel_drop_detected:
             self.wheel_drop_flag = True
         self.safety_msg = msg
+
+    # ========================= Status Publisher ====================
+    def publish_status(self):
+        x, y, yaw = self.getOdomData()
+        msg = String()
+        msg.data = (
+            "robot_control_processor "
+            f"odom=({x:.2f}, {y:.2f}, {yaw:.2f}) "
+            f"paused={self.movement_paused} "
+            f"bumper={self.getBumperStatus()} "
+            f"cliff={self.getCliffStatus()} "
+            f"wheel_drop={self.getWheelDropStatus()}"
+        )
+        self.status_publisher.publish(msg)
 
     # ========================= Public API ====================
     # Odometry
@@ -250,14 +264,19 @@ class RobotControlProcessor(Node):
     def turnRight(self, amount):
         self.move(0.0, -amount)
 
-    def turnByAngle(self, angle):
+    def turnByAngle(self, angle, timeout_sec=None):
         curr_x, curr_y, curr_yaw = self.getOdomData()
         goal_yaw = self.normalize_degrees(curr_yaw + angle)
+        start_time = time.monotonic()
 
         while rclpy.ok():
             _, _, curr_yaw = self.getOdomData()
             yaw_error = self.normalize_degrees(goal_yaw - curr_yaw)
             if abs(yaw_error) <= 5:
+                self.stop()
+                return True
+
+            if timeout_sec is not None and time.monotonic() - start_time >= timeout_sec:
                 break
 
             if yaw_error > 0:
@@ -267,13 +286,15 @@ class RobotControlProcessor(Node):
             time.sleep(0.05)
 
         self.stop()
+        return False
 
     # Shutdown
     def is_shutdown(self):
         return not rclpy.ok()
 
     def shutdown(self):
-        self.stop()
+        if rclpy.ok():
+            self.stop()
         self.spin_running = False
         if self.spin_thread is not None:
             self.spin_thread.join(timeout=1.0)
