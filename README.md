@@ -16,39 +16,14 @@ Hardware / Simulation
 
 ## Current Phase
 
-Phase 5 is the current implementation phase. Phase 4 hardware validation confirmed that the ROS-native match planner app can dry-run against TurtleBot2 data and perform guarded turning with explicit safety parameters. Phase 5 now moves reusable command authority into `robot_core` so applications request motion through a common command mux instead of publishing directly to the adapter-facing command topic.
+Reverted back to phase 3 because it is the safest build, while we are doing the network configuration for turtlebot4. 
 
-Current Phase 5 goal:
+The goal now is the first setup the foundation for both turtlebot2 and turtlebot4. To do this we must have the following:
+- tb2 and tb4 have different network configurations thus they must load certain environment variables unique to their setup when launching its bringup. This needs to be using the import OS package. 
 
-- Keep the working Phase 1-3 base, adapter, core, and modular processor paths intact.
-- Treat ROS Discovery Server as the default multi-computer communication layer.
-- Do not build new work around the old socket server-client setup from `foxrobotlab_ros2`.
-- Use subscriber and service based tests in the `test` package to prove topic traffic and app behavior, because `ros2 topic list` can be unreliable under the Discovery Server setup.
-- Keep match planner algorithm modules as normal Python where that is simpler.
-- Wrap robot I/O, app status, launch configuration, and app-to-app communication in ROS 2 nodes.
-- Route application motion requests through `/robot/apps/cmd_vel`, then let `robot_core` decide whether to forward safe commands to `/robot/cmd_vel`.
+- tb4 packages are ROS dependencies that came with the vendor with their own tools. To adapt this into our architecture, we make sripts and launch files that find inlclude the packages associated with the vendor.
 
-Current Phase 5 implementation status:
-
-- `robot_apps` now uses per-application folders instead of placing every app script in one shared source folder.
-- `robot_apps/simple_drive` contains the simple command-path test app.
-- `robot_apps/state_printer` contains the state-printing test app.
-- `robot_apps/match_planner` contains the copied match planner support modules, app config, app resources, `localizer_stub_node.py`, and `match_planner_node.py`.
-- `localizer_stub_node.py` provides a temporary `/robot_apps/match_planner/localize` service and deterministic fake-match parameters so planner behavior can be tested before the real visual localizer is migrated.
-- `planner_core.py` owns planner state, start/goal transitions, localization updates, path progress, next-target selection, arrival detection, and dry-run navigation decisions.
-- `match_planner_node.py` is the current ROS-native planner shell. It publishes `MatchPlannerStatus`, provides start and goal services, gates localization while idle by default, calls the localizer service when active, and uses `robot_core.RobotControlProcessor` for modular robot I/O. Physical movement is disabled by default behind explicit safety parameters.
-- `robot_core/command_mux.py` owns the reusable command gate from `/robot/apps/cmd_vel` to `/robot/cmd_vel`, publishes `/robot/command_mux/status`, and sends stop commands when app input is stale or safety is active.
-- `robot_apps/launch/tb2_match_planner.launch.py` launches the Phase 4 app shell and localizer stub. It does not start the robot base.
-- `test/launch/match_planner_shell_verifier.launch.py` starts the app shell, calls the start and goal services, subscribes to planner status, and verifies app behavior without relying on `ros2 topic list`.
-- `test/launch/match_planner_dry_run_verifier.launch.py` runs deterministic localization through the app shell and verifies next-node dry-run movement and arrival behavior.
-- `test/launch/command_mux_verifier.launch.py` verifies that safe app commands are forwarded and stale or safety-blocked commands publish stops.
-
-Next Phase 5 implementation target:
-
-- Move remaining app command publishers to `/robot/apps/cmd_vel`.
-- Keep `/robot/cmd_vel` as a `robot_core` output and adapter input, not an application publishing target.
-- Use `/robot/command_mux/status` for command-path debugging.
-- Keep match planner safety parameters intact; app-level movement is still disabled by default.
+- these outside packages publish their own topics that the code should subscribe to then republish into internal messages
 
 ## Current Packages
 
@@ -58,7 +33,7 @@ Next Phase 5 implementation target:
 - `robot_bringup`: launch files for starting low-level infrastructure.
 - `robot_apps`: application-level tests and future experiments.
 - `foxrobotlab_ros2`: legacy working code retained during migration.
-- `ThirdParty/*`: imported drivers and support libraries.
+- `ThirdParty/*`: imported drivers and support libraries for turtlebot2.
 
 ## Planned Package Layout
 
@@ -178,6 +153,20 @@ src/robot_adapters/config/tb2_topics.yaml
 High-level code should use `/robot/...` topics instead of subscribing directly to Kobuki native topics.
 
 Architecture nodes use YAML files as their parameter source of truth. The Python nodes auto-declare parameters from launch-provided YAML overrides, so run them through their launch files rather than directly with `ros2 run` unless you also provide the required parameters.
+
+## Planning Source Of Truth
+
+Use this README as the source of truth for architecture and testing plans. Future AI chats should read this file before proposing phase plans or test procedures, and the user may update the README with AI-suggested corrections when the plan changes.
+
+Important correction for the current network setup: this workspace uses a ROS Discovery Server. Because of that, `ros2 topic list` may not show all active topics even when messages are being transmitted correctly between the TurtleBot2, workstation, and test nodes. Do not treat topic-list visibility as proof that the system is broken or working.
+
+For network/topic validation, the authoritative test is subscriber-based message receipt:
+
+```bash
+ros2 launch test phase2_topic_verifier.launch.py
+```
+
+That verifier passes only when it receives real messages on the configured `/robot/...` and temporary `/foxrobotlab/raw/...` streams. Manual `ros2 topic echo` commands are useful for debugging after the verifier result, but the verifier result should guide planning decisions.
 
 ## Build
 
@@ -355,178 +344,6 @@ Acceptance criteria:
 - Existing Phase 1 state test still works.
 - No legacy launch files are changed yet.
 
-## Phase 3 Modular Planner Path
-
-Phase 3 added a modular replacement for the legacy `TurtleControlProcessor`. The processor lives in `robot_core` and consumes `/robot/...` topics instead of `/foxrobotlab/raw/...`. In Phase 5, its app-level movement helpers publish requested motion to `/robot/apps/cmd_vel` so the command mux can enforce safety before `/robot/cmd_vel`.
-
-The legacy `turtle_control_processor.py`, `turtle_control_reciever.py`, and `foxrobotlab_ros2/launch/match_planner.launch.py` remain available as references.
-
-Run the modular processor smoke test after `tb2_system.launch.py` is already running:
-
-```bash
-ros2 launch test robot_control_processor_smoke.launch.py
-```
-
-Run the modular match planner path:
-
-```bash
-ros2 launch robot_bringup tb2_modular_match_planner.launch.py astra:=true
-```
-
-This launch starts the TurtleBot2 system and runs the existing `matchPlanner.py` with `FOX_USE_MODULAR_ROBOT_PROCESSOR=1`, so the planner uses `robot_core.RobotControlProcessor` instead of the legacy processor.
-
-## Phase 4 Application Migration Plan
-
-Phase 4 migrates the match planner from a legacy script stack into `robot_apps` without changing the whole algorithm at once. The design is intentionally hybrid:
-
-- Keep planning, localization, map, and movement helpers as normal Python modules where that is simpler.
-- Use ROS 2 nodes for robot I/O, lifecycle, status, launch configuration, services, and communication between major app capabilities.
-- Use ROS topics, services, parameters, and launch files instead of the old socket server-client setup.
-- Keep the legacy `foxrobotlab_ros2` planner code available as a reference until the modular app path is tested on hardware.
-
-Current Phase 4 layout:
-
-```text
-robot_apps/
-  launch/
-    tb2_match_planner.launch.py
-  robot_apps/
-    match_planner/
-      config/
-        match_planner.yaml
-      res/
-        map/
-      localizer_stub_node.py
-      match_planner_node.py
-      DataPaths.py
-      FieldBehaviors.py
-      FoxQueue.py
-      Graphs.py
-      Localizer2.py
-      LocalizerStringConstants.py
-      MapGraph.py
-      OlinWorldMap.py
-      OutputLogger.py
-      PathLocation.py
-      PotentialFieldThread.py
-```
-
-Current Phase 4 nodes:
-
-- `localizer_stub_node.py`: temporary service node for `/robot_apps/match_planner/localize`. It returns no-match responses by default and supports deterministic fake-match sequences for tests.
-- `planner_core.py`: plain Python planner state and path logic. It owns start/goal transitions, current and next node state, active/paused flags, localization result handling, path progress, next-target selection, arrival detection, and navigation decision data.
-- `match_planner_node.py`: ROS-native planner shell. It publishes `/robot_apps/match_planner/status`, provides start and goal services, gates localization while idle by default, calls the localizer service when active, dry-runs movement by default, and uses `robot_core.RobotControlProcessor` for guarded `/robot/...` robot I/O.
-
-Current Phase 4 launch:
-
-```bash
-ros2 launch robot_apps tb2_match_planner.launch.py
-```
-
-This launch starts the app shell and localizer stub only. Start the TurtleBot2 base separately when testing against hardware:
-
-```bash
-ros2 launch robot_bringup tb2_system.launch.py astra:=true
-ros2 launch robot_apps tb2_match_planner.launch.py
-```
-
-Current service examples:
-
-```bash
-ros2 service call /robot_apps/match_planner/set_start lab_interfaces/srv/SetMatchPlannerStart "{node: 1, use_current_pose: false, x: 0.0, y: 0.0, yaw: 0.0}"
-ros2 service call /robot_apps/match_planner/set_goal lab_interfaces/srv/SetMatchPlannerGoal "{destination_node: 5}"
-```
-
-Current status check:
-
-```bash
-ros2 topic echo /robot_apps/match_planner/status
-```
-
-Planner shell verifier:
-
-```bash
-ros2 launch test match_planner_shell_verifier.launch.py
-```
-
-This launch starts the Phase 4 app shell and localizer stub, calls the start and goal services, and passes only after it receives planner status showing the requested start and destination.
-
-Dry-run navigation verifier:
-
-```bash
-ros2 launch test match_planner_dry_run_verifier.launch.py
-```
-
-This launch uses deterministic fake localization to simulate a match at the start node and then the destination node. It passes only after it observes a movement-disabled dry-run decision and arrival status.
-
-## Phase 4C Hardware-Safe Validation
-
-Status: complete. Hardware validation passed, so Phase 5 command mux work can begin.
-
-Default app launch is motor-safe:
-
-```bash
-ros2 launch robot_apps tb2_match_planner.launch.py
-```
-
-Hardware dry-run uses the planner app without the localizer stub, so a real localization service must already provide `/robot_apps/match_planner/localize`. It keeps `enable_movement: false`.
-
-```bash
-ros2 launch test match_planner_hardware_dry_run_verifier.launch.py
-```
-
-Guarded-turn validation uses a separate deterministic test config. It can command a turn because `match_planner_turn_test.yaml` sets `enable_movement: true` and `enable_turning: true`. Run it only with the robot lifted or safely staged.
-
-```bash
-ros2 launch test match_planner_turn_test_verifier.launch.py
-```
-
-Potential-field movement is still disabled in all Phase 4C configs.
-
-Important distinction:
-
-- `robot_bringup/launch/tb2_modular_match_planner.launch.py` is the Phase 3 bridge path. It starts the full robot system and runs legacy `matchPlanner.py` with `FOX_USE_MODULAR_ROBOT_PROCESSOR=1`.
-- `robot_apps/launch/tb2_match_planner.launch.py` is the Phase 4 app path. It starts the ROS-native match planner shell under `robot_apps`.
-
-Do not treat the Phase 3 bridge as the final Phase 4 destination. It remains useful for hardware comparison while the new app path is being built.
-
-Completed validation sequence:
-
-1. Validate dry-run movement decisions against real TurtleBot2 sensor and localization data with `enable_movement: false`.
-2. Test stop-on-arrival and guarded turning with `match_planner_turn_test.yaml` only after the robot is safely staged.
-3. Keep potential-field movement disabled until dry-run decisions and guarded turning have been verified. Keep `start_paused: true` as the safe default.
-
-## Phase 5 Reusable Command Mux
-
-Applications now request velocity on `/robot/apps/cmd_vel`. The command mux in `robot_core` owns the safety gate and publishes approved commands to `/robot/cmd_vel`, which remains the adapter-facing command topic.
-
-```text
-robot_apps
-  -> /robot/apps/cmd_vel
-  -> robot_core command_mux
-  -> /robot/cmd_vel
-  -> robot_adapters
-  -> native driver command topic
-```
-
-Run the focused mux verifier:
-
-```bash
-ros2 launch test command_mux_verifier.launch.py
-```
-
-The verifier passes only after it sees a safe command forwarded, a stale command stopped, and a fake safety condition block motion. Do not publish application commands directly to `/robot/cmd_vel`; that topic is now owned by `robot_core`.
-
-Good ROS node boundaries for later:
-
-- Planner node: decides the next navigation behavior or movement request.
-- Movement node: turns planner requests into `/robot/apps/cmd_vel` requests and lets `robot_core` gate `/robot/cmd_vel`.
-- Localization node: owns camera/localization state and publishes common localization results.
-- Map provider node: loads map files and provides map or graph data through services.
-- UI/status node: publishes planner state for monitoring.
-
-Do not split every imported planner helper into a separate ROS node. ROS should be used for communication between major robot capabilities, not for every local helper function.
-
 ### ROS Discovery Server Design Change
 
 The old `foxrobotlab_ros2` socket server-client setup is now considered legacy. New architecture work should assume that robot, workstation, and test nodes communicate through ROS 2 with the ROS Discovery Server configured correctly.
@@ -542,44 +359,6 @@ ros2 launch test robot_control_processor_smoke.launch.py
 ```
 
 These tests prove that real messages are being received on the expected topics. That is stronger evidence than graph inspection for this workspace.
-
-## How To Compare Old Receiver Vs New Adapter
-
-Old receiver flow:
-
-```text
-native topics -> turtle_control_reciever.py -> /foxrobotlab/raw/...
-```
-
-New adapter compatibility flow:
-
-```text
-native topics -> tb2_adapter.py -> /robot/...
-                              -> /foxrobotlab/raw/...
-```
-
-To compare them safely, run one forwarding path at a time. Do not run `turtle_control_reciever.py` and `tb2_adapter.py` compatibility mode at the same time, because both will publish the same `/foxrobotlab/raw/...` topics.
-
-Example battery comparison:
-
-```bash
-# Old path
-ros2 run foxrobotlab_ros2 turtle_control_reciever.py
-ros2 topic echo /foxrobotlab/raw/sensors/battery_state
-
-# New path
-ros2 launch test phase2_adapter_compat_test.launch.py
-ros2 topic echo /robot/battery
-ros2 topic echo /foxrobotlab/raw/sensors/battery_state
-```
-
-Human learning pattern:
-
-1. Find the native topic in `turtle_control_reciever.py`.
-2. Find the old `/foxrobotlab/raw/...` output.
-3. Add or verify the new `/robot/...` output in `tb2_topics.yaml`.
-4. In `tb2_adapter.py`, import the message type, declare parameters, create publishers/subscribers, and republish in the callback.
-5. Test the new `/robot/...` topic and the temporary compatibility topic.
 
 ## Refactoring Roadmap
 
@@ -629,16 +408,14 @@ robot_apps
   -> native driver command topic
 ```
 
-### Phase 4: Migrate Match Planner Into `robot_apps`
+### Phase 4: Add turtleebot4 configuration and be able to use its SLAM packages
 
-Status: implemented and hardware-validated through dry-run and guarded-turn checks. The app folder, localizer stub, match planner shell, status message, start/goal services, planner core, idle-localization gating, map/path reconnection, dry-run navigation decisions, guarded movement parameters, hardware dry-run config, guarded-turn config, and shell/dry-run/turn verifiers exist.
+This phase will need to bringup the tb4 by calling its external packages that came with the robot. Additionally, during bringup we must able to switch the ROS Discovery server between tb4 and tb2.
+- In our current setup tb2 is the client and the workstation is the server. This works for tb2
 
-- Move match planner application code toward `robot_apps`.
-- Keep algorithm modules as ordinary Python where that is simpler.
-- Convert robot communication, launch configuration, and runtime status into ROS nodes.
-- Replace socket server-client assumptions with ROS Discovery Server communication.
-- Use the `test` package for subscriber-based verification instead of relying on `ros2 topic list`.
-- Do not remove the legacy `foxrobotlab_ros2` planner path until the modular app path works on hardware.
+- In tb4, the robot must be the server as it communicates directly with create3 base and the workstation as the client.
+
+- Need placeholders for setting up the server id, ports and dds configs.
 
 ### Phase 5: Add Reusable Core Services
 
@@ -649,46 +426,18 @@ Status: current implementation phase. The command mux, safety command gating, ap
 - Add reusable status reporting.
 - Keep localization and experiment-specific behavior outside the core unless it is robot-agnostic infrastructure.
 
-### Phase 6: Finish Application Migration
+### Phase 6: Migrate the matchPlanner and all its functionalities
 
-- Port match planner behavior into `robot_apps` or a dedicated application package.
-- Make application code consume `/robot/state`, `/robot/odom`, `/robot/safety_status`, and future common camera topics.
-- Make application code publish commands only through the common command path.
+- Start by making sure that this codebase can run everything on foxrobotlab_ros2 
+- This includes being able to run the GUI
 
-### Phase 7: Retire Socket Client-Server Paths
+1. The first step of the migration is to retire the socket client-server setup since we migrated to ROS discovery server.
+2. The second step is to be able to Run the program and GUI without the socket client-server
+3. Migrate the core programs to robot_apps
 
-- Keep old socket client-server code in `foxrobotlab_ros2` only as a reference while the modular ROS path is validated.
-- Do not build new application features on the socket protocol.
-- Remove or archive the socket path after ROS Discovery Server operation and modular planner tests are reliable.
+### Phase 7: Add ML And Localization Packages
 
-### Phase 8: Add ML And Localization Packages
-
-- Create `robot_ml` for CNN model integration and camera-based localization.
-- Keep CNN dependencies optional.
-- Publish localization outputs through common interfaces rather than app-specific globals.
-
-Possible topics:
-
-```text
-/robot/localization/pose
-/robot/localization/state
-/robot/localization/candidates
-```
-
-### Phase 9: Add Navigation
-
-- Create `robot_navigation` for Nav2 configuration, maps, costmaps, RViz, and navigation launch files.
-- Route Nav2 command output through the common command mux and safety gate.
-- Do not let Nav2 bypass `/robot/cmd_vel`.
-
-### Phase 10: Add TurtleBot4 And Simulation
-
-- Add `tb4_adapter` and `tb4_topics.yaml` under `robot_adapters`.
-- Add TurtleBot4 bringup launch files.
-- Add `robot_simulation` for Gazebo after hardware layering is stable.
-- Require simulation to satisfy the same `/robot/...` interface contract.
-
-### Phase 11: Retire `foxrobotlab_ros2`
+### Phase 8: Retire `foxrobotlab_ros2`
 
 Retire or archive the old package when:
 
@@ -697,11 +446,3 @@ Retire or archive the old package when:
 - No active app publishes directly to native velocity topics.
 - Socket client-server code has been removed, archived, or replaced by ROS-native communication.
 - Localization and CNN code live in dedicated architecture packages.
-
-## Phase 1 Notes
-
-- The adapter has been verified to create the common `/robot/...` topics.
-- `/robot/scan` depends on a lidar source publishing the configured native scan topic. TurtleBot2 base does not have lidar by default, so `has_lidar` should stay `false` unless a physical lidar is attached and launched.
-- The safety monitor logs hazards but does not block velocity commands yet.
-- `foxrobotlab_ros2` remains in place as legacy working code during migration.
-- Nav2, Gazebo, TurtleBot4 support, CNN localization, and client-server migration are intentionally out of scope for Phase 1.
