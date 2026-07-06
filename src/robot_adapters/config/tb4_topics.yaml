@@ -1,0 +1,49 @@
+tb4_adapter:
+  ros_parameters:
+    robot_name: "turtlebot4"
+    robot_type: "hardware"
+
+    input_topics:
+      odom: "/odom"
+      scan:
+      imu:
+
+      image_color:
+      image_depth:
+
+      # Read official documentation for the topics related to safety and robot status
+
+    output_topics:
+      odom: "/robot/odom"
+      scan:
+      imu:
+
+      image_color:
+      image_depth:
+
+      safety_status:
+      state:
+      battery:
+      core:
+
+      capabilities:
+    
+    command_topics:
+      internal_cmd_vel: "/robot/cmd_vel"
+      # foxrobotlab_ros2/launch/kobuki.launch.py remaps the Kobuki driver's
+      # /commands/velocity input to /cmd_vel.
+      native_cmd_vel: "/cmd_vel"
+
+    capabilities:
+      has_lidar: false
+      has_camera: true
+      has_depth_camera: true
+      has_imu: true
+      has_core_sensors: true
+      has_docking: false
+      has_hazard_detection: false
+      has_bumper_detection: true
+      has_cliff_detection: true
+      has_wheel_drop_detection: true
+      has_battery: true
+      is_simulated: false
