@@ -1,6 +1,8 @@
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch.conditions import IfCondition
+from launch.substitutions import PythonExpression
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
@@ -9,7 +11,6 @@ from launch_ros.substitutions import FindPackageShare
 def declare_launch_arguments():
     return [
         DeclareLaunchArgument("robot", default_value="tb2"),
-        DeclareLaunchArgument("config", default_value="tb2_topics.yaml"),
     ]
 
 
@@ -18,14 +19,20 @@ def generate_launch_description():
 
     # ---------------- Get Launch Configurations ----------------
     # Load the adapter config file name from the launch arguments.
-    config = LaunchConfiguration("config")
+    robot = LaunchConfiguration("robot")
 
     # ---------------- Get Parameters ----------------
     # Build the full path to the adapter YAML file.
-    config_file = PathJoinSubstitution([
+    tb2_parameters = PathJoinSubstitution([
         FindPackageShare("robot_adapters"),
         "config",
-        config,
+        "tb2_topics.yaml",
+    ])
+
+    tb4_parameters = PathJoinSubstitution([
+        FindPackageShare("robot_adapters"),
+        "config",
+        "tb4_topics.yaml",
     ])
 
     # ---------------- Initialize Nodes ----------------
@@ -35,7 +42,17 @@ def generate_launch_description():
         executable="tb2_adapter.py",
         name="tb2_adapter",
         output="screen",
-        parameters=[config_file],
+        parameters=[tb2_parameters],
+        condition=IfCondition(PythonExpression(["'", robot, "' == 'tb2'"])),
+    )
+
+    tb4_adapter_node = Node(
+        package="robot_adapters",
+        executable="tb4_adapter.py",
+        name="tb4_adapter",
+        output="screen",
+        parameters=[tb4_parameters],
+        condition=IfCondition(PythonExpression(["'", robot, "' == 'tb4'"])),
     )
 
     # ---------------- Add to Launch Description ----------------
@@ -44,5 +61,6 @@ def generate_launch_description():
         ld.add_action(arg)
 
     ld.add_action(tb2_adapter_node)
-
+    ld.add_action(tb4_adapter_node)
+    
     return ld

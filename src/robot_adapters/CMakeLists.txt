@@ -18,6 +18,7 @@ find_package(lab_interfaces REQUIRED)
 install(
   PROGRAMS
     src/tb2_adapter.py
+    src/tb4_adapter.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
