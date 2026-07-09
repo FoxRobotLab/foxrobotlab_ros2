@@ -415,7 +415,6 @@ def train(epochs = 10):
             ),
             keras.callbacks.TensorBoard(
                 log_dir=checkpoint_dir,
-                write_images=False
             ),
             keras.callbacks.TerminateOnNaN()
         ]
@@ -493,4 +492,3 @@ if __name__ == "__main__":
     # 3. Start training
     train(epochs=epochs)
     print("Training complete!")
-
