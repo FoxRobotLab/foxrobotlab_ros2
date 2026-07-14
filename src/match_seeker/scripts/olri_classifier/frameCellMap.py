@@ -20,7 +20,7 @@ from datetime import datetime
 # from paths import DATA, DATA2022, pathToMatchSeeker
 
 #import paths from Precision 5820
-from src.match_seeker.scripts.olri_classifier.paths import DATA, DATA2022
+from olri_classifier.paths import DATA, DATA2022
 
 # from DataPaths import cellMapData, basePath
 

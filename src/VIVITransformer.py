@@ -1,267 +1,29 @@
+"""--------------------------------------------------------------------------------
+VIVITransformer.py
+
+Created: June 2026
+Authors: Susan Fox, Jana Abu-Subha
+
+VIVITransformer implements a Video Vision Transformer based on Arnab et. al, and with
+reference to the keras tutroial implementation of VIVIT. This file contains four classes,
+TubeletEmbedding, which divides the video in spatio temporal tubes for processing, PositionalEncoder,
+which injects 3D spatiotemporal context into the sequence, VideoAugmentation which adds three layers of
+preprocessing data augmentation, and CellPredictModelVIVIT which creates, builds, and trains the
+Video Vision Transformer.
+
+--------------------------------------------------------------------------------"""
 import os
+import cv2
+import numpy as np
+import keras
 import time
 from pathlib import Path
-import math
-import cv2
-import re
-import numpy as np
 import tensorflow as tf
-import keras
 from keras import layers
+from match_seeker.scripts.olri_classifier.DataGeneratorVIVIT import *
+from match_seeker.scripts.olri_classifier.paths import *
 
-# Paths for the Precision Towers
 myPath = Path("/home/macalester/PycharmProjects/catkin_ws/src/match_seeker/res/classifier2022Data/DATA/")
-textDataPath = myPath / "AnnotData/"
-framesDataPath = myPath / "FrameData/"
-checkPts = myPath / "CHECKPOINTS/"
-
-run_id = time.strftime("%m%d%y%H%M")
-checkpoint_dir = str(checkPts) + f"/2026CellPredictTransformer_checkpoint-{run_id}/"
-data_name = "VIVIT"
-
-outputSize = 271 #ie number of classes
-image_size = 224
-seqLength = 10
-skipSize = 5
-
-batch_size = 8
-learning_rate = 1e-4
-epochs = 10
-train_perc = 0.8
-randSeed = 4359
-
-eval_ratio = 11.0 / 61.0
-image_depth = 4
-dataSize = 0
-
-# TUBELET EMBEDDING
-INPUT_SHAPE = (10, 224, 224, 3)
-PATCH_SIZE = (4, 16, 16)
-NUM_PATCHES = (INPUT_SHAPE[0] // PATCH_SIZE[0]) ** 2
-
-# ViViT ARCHITECTURE
-LAYER_NORM_EPS = 1e-6
-PROJECTION_DIM = 128
-NUM_HEADS = 8
-NUM_LAYERS = 8
-
-loaded_checkpoint_raw = "2026CellPredictTransformer_checkpoint-0623261432/VIVIT-20-0.17.keras"
-if loaded_checkpoint_raw is not None:
-    loaded_checkpoint = checkPts / loaded_checkpoint_raw
-else:
-    loaded_checkpoint = loaded_checkpoint_raw
-
-train_ds = None
-val_ds = None
-model = None
-
-"""
-Data generator based on DataGenerator2022.py that produces data suitable for use by a CNN-LSTM model. It
-produces sequences of a fixed length, made from overlapping segments of each video/run frames.
-
-Created Summer 2024
-Authors: Susan Fox, Marcus Wallace, Elisa Avalos, Oscar Reza Bautista
-"""
-
-class DataGeneratorLSTM(keras.utils.Sequence):
-    def __init__(self, framePath, annotPath, skipSize, seqLength,
-                 batch_size, shuffle=True, randSeed=12342, train_perc=0.8,
-                 img_size=224, train=True, generateForCellPred = True,
-                 cellPredWithHeadingIn = False, headingPredWithCellIn = False):
-
-        self.batch_size = batch_size
-        self.framePath = framePath
-        self.annotPath = annotPath
-        self.skipSize = skipSize
-        self.seqLength = seqLength
-
-        self.shuffle = shuffle
-        self.img_size = img_size
-        self.image_path = framesDataPath
-
-        self.runData = self._collectRunData()
-        self.allSequences = self._enumerateSequences()
-
-        self.train_perc = train_perc
-        np.random.seed(randSeed)  # set random generator to
-
-        self.trainSequences, self.valSequences = self.traintestsplit(self.allSequences, self.train_perc)
-        print(self.train_perc, len(self.trainSequences) / len(self.allSequences), len(self.valSequences) / len(self.allSequences))
-
-        self.generateForCellPred = generateForCellPred
-        self.cellPredWithHeadingIn = cellPredWithHeadingIn
-        self.headingPredWithCellIn = headingPredWithCellIn
-
-        self.potentialHeadings = [0, 45, 90, 135, 180, 225, 270, 315]
-        if not train:
-            self.allSequences = self.valSequences
-
-    def __len__(self):
-      'Denotes the number of batches per epoch'
-      return int(np.floor(len(self.trainSequences) / self.batch_size))
-
-    def _collectRunData(self):
-        """Iterates over the annotation files in the input folder, and builds a run data object for each."""
-        if not os.path.exists(self.annotPath):
-            raise FileNotFoundError
-        annotFiles = [f for f in os.listdir(self.annotPath) if f.startswith("FrameDataReviewed") and f.endswith(".txt")]
-        annotFiles.sort()
-        runData = []
-        for file in annotFiles:
-            nextRunInfo = VideoRunData(file, self.annotPath, self.framePath, self.skipSize, self.seqLength)
-            runData.append(nextRunInfo)
-        return runData
-
-    def _enumerateSequences(self):
-        """Iterates over the self.runData objects, and collects up how many sequences each run has. It makes a list of all
-        possible sequences, which can be reordered to produce sequences in random orders."""
-        allSequences = []
-        for (runIndex, rData) in enumerate(self.runData):
-            numSeqs = rData.getNumSequences()
-            for seqInd in range(numSeqs):
-                allSequences.append([runIndex, seqInd])
-        return allSequences
-
-    def makeFilename(path, fileNum):
-        """Makes a filename for reading or writing image files"""
-        formStr = "{0:s}{1:s}{2:0>4d}.{3:s}"
-        name = formStr.format(path, 'frame', fileNum, "jpg")
-        return name
-
-    def on_epoch_end(self):
-        'Reshuffles after each epoch'
-        if self.shuffle:
-            np.random.shuffle(self.trainSequences)
-
-    def __getitem__(self, index):
-      """Generate one batch of data"""
-
-      # Generate data
-      X, Y = self.__data_generation(index * self.batch_size)
-      return X, Y
-
-    def cleanImage(self, image):
-        """Preprocessing the images into the correct input form."""
-        img2 = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        shrunkenIm = cv2.resize(img2, (self.img_size, self.img_size))
-        processedIm = shrunkenIm / 255.0
-        return processedIm
-
-    def __data_generation(self, startIndex):
-        """Generates and returns one batch of data, a batch of sequences, and their corresponding labels.
-        Note the shape of the data here: one row for each sequence, and the second dimension is the length
-        of the sequence (each element is an image), and the third, fourth, and fifth dimensions are the image size
-        (height, width, channels)."""
-        # TODO: Need to determine here if we have one output per sequence? I think that is so, will write the code that way
-
-        # # Initialization
-        X = np.zeros((self.batch_size, self.seqLength, self.img_size, self.img_size, 3), dtype=float)
-        Y = np.zeros((self.batch_size), dtype=int)
-
-        for bInd in range(self.batch_size):
-            actInd = startIndex + bInd
-            [runInd, seqInd] = self.trainSequences[actInd]
-            runObj = self.runData[runInd]
-            frameList, annotList = runObj.retrieveSequence(seqInd)
-            for (i, imgName) in enumerate(frameList):
-                img = cv2.imread(imgName)
-                finalIm = self.cleanImage(img)
-                X[bInd,i,:,:,:] = finalIm
-            if self.generateForCellPred:
-                Y[bInd] = annotList[-1]['cell']
-            else:
-                headVal = annotList[-1]['head']
-                headInd = self.potentialHeadings.index(headVal)
-                Y[bInd] = headInd
-        return X, Y
-
-    def traintestsplit(self, sequences, train_perc):
-        '''Split the data passed in based on the evaluation ratio into
-        training and testing datasets, assuming it's already randomized'''
-        np.random.shuffle(sequences)
-        num_eval = int((train_perc * len(sequences)))
-        train_images = sequences[:num_eval]
-        eval_images = sequences[num_eval:]
-        return train_images, eval_images
-
-
-class VideoRunData(object):
-    """Represents the data for one "run" (essentially one video) including the annotations and the frames themselves,
-    without reading in the image data. It can be used to retrieve a sequence of image names and their annotations
-    of a given length and starting point."""
-    def __init__(self, annotFile, annotPath, dataPath, skipSize, seqLength):
-        """Sets up the data for a single run, given the annotation filename and the path to the folder of images.
-        It also takes optionally the number of frames to skip between starts of sequences, and the length of the
-        sequence to produce."""
-        # Sequence basics
-        self.skipSize = skipSize
-        self.seqLength = seqLength
-
-        # identifying timestamp information
-        results = re.findall("FrameDataReviewed(\d+)-(\d+)frames.txt", annotFile)
-        [date, recTime] = results[0]
-        self.date = date
-        self.recTime = recTime
-
-        # Set up information about images and their filenames
-        self.folderPath = dataPath / (str(date) + "-" + str(recTime) + "frames")
-
-        if not os.path.exists(self.folderPath):
-            print( "THERE IS NO " + str(self.folderPath) + ("!!!"))
-            raise FileNotFoundError
-        self.imageNames = [f for f in os.listdir(self.folderPath) if f.endswith(".jpg")]
-        self.imageNames.sort()
-        self.frameCount = len(self.imageNames)
-        self.numSequences = math.ceil((self.frameCount - self.seqLength + 1) / self.skipSize)
-
-        # Set up information about locations and cells from the annotation file
-        self.annotationsFile = annotPath / annotFile
-        if not os.path.exists(self.annotationsFile):
-            raise FileNotFoundError
-        with open(self.annotationsFile, 'r') as fil:
-            rawLines = fil.readlines()
-        self.annotData = {}
-        for line in rawLines:
-            parts = line.split()
-            if len(parts) > 1:  # Checks if the line is not empty
-                imgName = parts[0]
-                x = float(parts[1])
-                y = float(parts[2])
-                cell = int(parts[3])
-                head = int(parts[4])
-                self.annotData[imgName] = {'x': x, 'y': y, 'cell': cell, 'head': head}
-
-    def getFrameCount(self):
-        """Returns the number of frames in this run"""
-        return self.frameCount
-
-    def getNumSequences(self):
-        """Calculates the number of sequences, given the number of frames, the skip size, and the length of the sequence"""
-        return self.numSequences
-
-    def retrieveSequence(self, seqInd):
-        """This takes in a number, which is NOT the index of the frame, but rather which sequence to retrieve. For
-        example, with a skip size of 2, 0 would start with frame 0, but sequence index 1 would start with frame 2.
-        It returns a list of the image filenames for this sequence, and the corresponding annotations
-        (x, y, cell, head)."""
-        startIndex = seqInd * self.skipSize
-        seqFramePaths = []
-        seqAnnotations = []
-        for i in range(self.seqLength):
-            imName = self.imageNames[startIndex + i]
-            annot = self.annotData[imName]
-            seqFramePaths.append(self.folderPath / imName)
-            seqAnnotations.append(annot)
-        return seqFramePaths, seqAnnotations
-
-
-
-def prepDatasets():
-    """Finds the cell labels associated with the files in the frames folder, and then sets up two
-    data generators to preprocess data and produce the data in batches."""
-    global train_ds, val_ds
-    train_ds = DataGeneratorLSTM(framePath = framesDataPath, annotPath = textDataPath, skipSize=skipSize, seqLength=seqLength, batch_size = batch_size, generateForCellPred = False)
-    val_ds = DataGeneratorLSTM(framePath = framesDataPath, annotPath = textDataPath, skipSize=skipSize, seqLength=seqLength, batch_size = batch_size, train = False, generateForCellPred = False)
 
 @keras.saving.register_keras_serializable()
 class TubeletEmbedding(layers.Layer):
@@ -317,141 +79,270 @@ class PositionalEncoder(layers.Layer):
         })
         return config
 
-def create_vivit_classifier(
-    tubelet_embedder,
-    positional_encoder,
-    input_shape=INPUT_SHAPE,
-    transformer_layers=NUM_LAYERS,
-    num_heads=NUM_HEADS,
-    embed_dim=PROJECTION_DIM,
-    layer_norm_eps=LAYER_NORM_EPS,
-    num_classes=outputSize,
-):
-    # Get the input layer
-    inputs = layers.Input(shape=input_shape)
-    # Create patches.
-    patches = tubelet_embedder(inputs)
-    # Encode patches. make a class which i can call.
-    encoded_patches = positional_encoder(patches)
+@keras.saving.register_keras_serializable()
+class VideoAugmentation(layers.Layer):
+    def __init__(self, input_shape, **kwargs):
+        super().__init__(**kwargs)
+        self.input_shape_5d = input_shape
+        self.frames, self.height, self.width, self.channels = input_shape
 
-    # Create multiple layers of the Transformer block.
-    for _ in range(transformer_layers):
-        # Layer normalization and MHSA
-        x1 = layers.LayerNormalization(epsilon=1e-6)(encoded_patches)
-        attention_output = layers.MultiHeadAttention(
-            num_heads=num_heads, key_dim=embed_dim // num_heads, dropout=0.1
-        )(x1, x1)
+        self.probs = {
+            "brightness": 0.25,
+            "contrast": 0.25,
+            "erasing": 0.25,
+            "translation": 0.25,
+            "noise": 0.25
+        }
 
-        # Skip connection
-        x2 = layers.Add()([attention_output, encoded_patches])
+        # self.brightness_layer = layers.RandomBrightness(factor=0.25, value_range=(0.0, 1.0))
+        # self.contrast_layer = layers.RandomContrast(factor=0.25)
+        # self.erasing_layer = layers.RandomErasing(factor=0.4, scale=(0.02, 0.2), value_range=(0.0, 1.0))
+        # self.noise_layer = layers.GaussianNoise(stddev=0.05)
+        # self.translation_layer = layers.RandomTranslation(height_factor=0.1, width_factor=0.1, fill_mode='constant')
 
-        # Layer Normalization and MLP
-        x3 = layers.LayerNormalization(epsilon=1e-6)(x2)
-        x3 = keras.Sequential(
-            [
-                layers.Dense(units=embed_dim * 4, activation="gelu"),
-                layers.Dense(units=embed_dim, activation="gelu"),
-            ]
-        )(x3)
+    # def _apply_conditionally(self, x, layer, probability, training):
+    #     """Helper method to conditionally execute a layer based on a probability threshold."""
+    #     random_val = tf.random.uniform(shape=[], minval=0.0, maxval=1.0)
+    #     return tf.cond( #using cond in place of an if statement
+    #         random_val < probability,
+    #         lambda: layer(x, training=training),  # Apply layer if true
+    #         lambda: x  # Pass through unchanged if false
+    #     )
 
-        # Skip connection
-        encoded_patches = layers.Add()([x3, x2])
+    def _augment_single_video(self, video):
+        """Applies identical random transforms across all frames of ONE video clip using XLA-safe logic."""
+        # 1. Generate symbolic boolean conditions
+        do_brightness = tf.random.uniform([]) < self.probs["brightness"]
+        do_contrast = tf.random.uniform([]) < self.probs["contrast"]
+        do_translation = tf.random.uniform([]) < self.probs["translation"]
+        do_erasing = tf.random.uniform([]) < self.probs["erasing"]
+        do_noise = tf.random.uniform([]) < self.probs["noise"]
 
-    # Layer normalization and Global average pooling.
-    representation = layers.LayerNormalization(epsilon=layer_norm_eps)(encoded_patches)
-    representation = layers.GlobalAvgPool1D()(representation)
+        # 2. Generate unified parameters for this video clip
+        b_factor = tf.random.uniform([], -0.25, 0.25)
+        c_factor = tf.random.uniform([], 0.75, 1.25)
 
-    # Classify outputs.
-    outputs = layers.Dense(units=num_classes, activation="softmax")(representation)
+        t_height = tf.cast(tf.random.uniform([], -0.1, 0.1) * tf.cast(self.height, tf.float32), tf.int32)
+        t_width = tf.cast(tf.random.uniform([], -0.1, 0.1) * tf.cast(self.width, tf.float32), tf.int32)
 
-    # Create the Keras model.
-    model = keras.Model(inputs=inputs, outputs=outputs)
-    return model
+        e_h = tf.cast(tf.random.uniform([], 0.02, 0.2) * tf.cast(self.height, tf.float32), tf.int32)
+        e_w = tf.cast(tf.random.uniform([], 0.02, 0.2) * tf.cast(self.width, tf.float32), tf.int32)
+        e_y = tf.random.uniform([], 0, self.height - e_h, dtype=tf.int32)
+        e_x = tf.random.uniform([], 0, self.width - e_w, dtype=tf.int32)
 
+        # 3. Apply changes vectorially across all frames using tf.cond
+        video = tf.cond(do_brightness, lambda: video + b_factor, lambda: video)
+        video = tf.cond(do_contrast, lambda: (video - 0.5) * c_factor + 0.5, lambda: video)
 
-def buildNetwork():
-    """Builds the network, saving it to self.model."""
-    global model
-    print (tf.__version__)
-    print ("Calling buildNetwork", loaded_checkpoint)
-    if loaded_checkpoint is not None:
-        model = keras.models.load_model(loaded_checkpoint, compile=False, custom_objects={"TubeletEmbedding": TubeletEmbedding, "PositionalEncoder": PositionalEncoder})         #TODO: change what checkpoint is being loaded
-        print ("Got past the model loading")
-    else:
-        model = create_vivit_classifier(
-            tubelet_embedder=TubeletEmbedding(
-                embed_dim=PROJECTION_DIM, patch_size=PATCH_SIZE
-            ),
-            positional_encoder=PositionalEncoder(embed_dim=PROJECTION_DIM),
+        # Axis [1, 2] corresponds to (height, width), applying shifts identically over axis 0 (frames)
+        video = tf.cond(
+            do_translation,
+            lambda: tf.roll(video, shift=[t_height, t_width], axis=[1, 2]),
+            lambda: video
         )
-    # Compile the model with the optimizer, loss function
-    # and the metrics.
-    optimizer = keras.optimizers.Adam(learning_rate=learning_rate)
-    model.compile(
-        optimizer=optimizer,
-        loss="sparse_categorical_crossentropy",
-        metrics=[
-            keras.metrics.SparseCategoricalAccuracy(name="accuracy"),
-            keras.metrics.SparseTopKCategoricalAccuracy(5, name="top-5-accuracy"),
-        ],
-    )
 
-def train(epochs = 10):
-    """Sets up the loss function and optimizer, and then trains the model on the current training data. Quits if no
-    training data is set up yet."""
-    # balancer = DataBalancer()
-    # weights = balancer.getClassWeightCells()
-    model.fit(
-        train_ds,
-        epochs=epochs,
-        verbose=1,
-        validation_data=val_ds,
-        # class_weight = weights,
-        callbacks=[
-            keras.callbacks.History(),
-            keras.callbacks.ModelCheckpoint(
-                checkpoint_dir + data_name + "-{epoch:02d}-{val_loss:.2f}.keras",
-                save_freq="epoch"  # save every epoch
-            ),
-            keras.callbacks.TensorBoard(
-                log_dir=checkpoint_dir,
-                write_images=False
-            ),
-            keras.callbacks.TerminateOnNaN()
-        ]
-    )
+        def apply_erasing():
+            # XLA-COMPLIANT: Generate coordinate meshes of a completely static size
+            rows = tf.range(self.height)
+            cols = tf.range(self.width)
+            cols_grid, rows_grid = tf.meshgrid(cols, rows)
+
+            # Use conditional comparison instead of variable tensor initialization
+            in_x = (cols_grid >= e_x) & (cols_grid < e_x + e_w)
+            in_y = (rows_grid >= e_y) & (rows_grid < e_y + e_h)
+            in_box = in_x & in_y
+
+            # Wherever we are inside the box, fill with 0.0, otherwise keep 1.0
+            mask = tf.where(in_box, 0.0, 1.0)
+            mask = tf.expand_dims(mask, axis=-1)  # Shape: (height, width, 1)
+            mask = tf.cast(mask, dtype=video.dtype)
+
+            # Broadcasts across all frames seamlessly
+            return video * mask
+
+        video = tf.cond(do_erasing, apply_erasing, lambda: video)
+
+        video = tf.cond(
+            do_noise,
+            lambda: video + tf.random.normal(shape=tf.shape(video), stddev=0.05),
+            lambda: video
+        )
+
+        return tf.clip_by_value(video, 0.0, 1.0)
+
+    def call(self, inputs, training=None):
+        if not training:
+            return inputs
+
+        # Use tf.map_fn to iterate cleanly through the batch elements
+        augmented_batch = tf.map_fn(
+            fn=self._augment_single_video,
+            elems=inputs,
+            fn_output_signature=inputs.dtype
+        )
+        return augmented_batch
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({"input_shape": self.input_shape_5d})
+        return config
 
 
 class CellPredictModelVIVIT(object):
-    def __init__(self, check_point_folder=None, loaded_checkpoint=None):
-        """
-        Wrapper class for the ViViT Cell Predictor.
-        """
+    def __init__(self, check_point_folder=myPath / "CHECKPOINTS", loaded_checkpoint="2026ActualCellPredictTransformer_checkpoint-0706261533/VIVIT-20-4.47.keras",
+                 framePath=myPath / "FrameData", annotPath=myPath / "AnnotData",
+                 data_name="VIVIT", output_size=271, image_size=224, seq_length=16, skip_size=16,
+                 batch_size=8, learning_rate=1e-4, epochs=100, input_shape= (16, 224, 224, 3)):
+
+        # File System
+        run_id = time.strftime("%m%d%y%H%M")
+        # For starting a new model
+        # self.checkpoint_dir = os.path.join(check_point_folder, f"2026ActualCellPredictTransformer_checkpoint-{run_id}/")
+
+        # For loading a previous model
+        self.checkpoint_dir = os.path.join(check_point_folder, "2026ActualCellPredictTransformer_checkpoint-0706261533/")
+
+        self.framePath = framePath
+        self.annotPath = annotPath
+        self.data_name = data_name
+
+        # Model Hyperparameters
+        self.outputSize = output_size
+        self.image_size = image_size
+        self.seqLength = seq_length
+        self.skipSize = skip_size
+        self.batch_size = batch_size
+        self.learning_rate = learning_rate
+        self.epochs = epochs
+        self.input_shape= input_shape
+
+        # ViViT Network Transformer Architecture
+        self.layer_norm_eps = 1e-6
+        self.embed_dim = 256 # previously 128
+        self.num_heads = 4 # previously 8
+        self.num_layers = 8
+        self.patch_size = (4, 16, 16)
+
+        # Datasets & Central Graph Components
+        self.train_ds = None
+        self.val_ds = None
+        self.model = None
+
+        # Custom Layer Serializers mapping configuration
+        self.custom_objects = {
+            "TubeletEmbedding": TubeletEmbedding,
+            "PositionalEncoder": PositionalEncoder,
+            "VideoAugmentation": VideoAugmentation
+        }
+
+        # Handle file paths if loading active weights
         if loaded_checkpoint is not None:
-            self.loaded_checkpoint = str(check_point_folder) + "/" + loaded_checkpoint
+            self.loaded_checkpoint = os.path.join(check_point_folder, loaded_checkpoint)
         else:
             self.loaded_checkpoint = None
 
-        self.model = None
+
+    def prepDatasets(self):
+        """Finds the cell labels associated with the files in the frames folder, and then sets up two
+        data generators to preprocess data and produce the data in batches."""
+        self.train_ds = DataGeneratorVIVIT(framePath=self.framePath, annotPath=self.annotPath, skipSize=self.skipSize,
+                                      seqLength=self.seqLength, batch_size=self.batch_size, train=True, generateForCellPred=True)
+        self.val_ds = DataGeneratorVIVIT(framePath=self.framePath, annotPath=self.annotPath, skipSize=self.skipSize,
+                                    seqLength=self.seqLength, batch_size=self.batch_size, train=False, generateForCellPred=True)
+
+    def create_vivit_classifier(self):
+        """
+        Builds a Video Vision Transformer (ViViT) model with spatio-temporal tubelet embeddings.
+        Features a data augmentation layer.
+        Includes dropout to prevent overfitting.
+        """
+        inputs = layers.Input(shape=self.input_shape)
+        augment = VideoAugmentation(input_shape=self.input_shape)(inputs)
+
+        tubelet_embedder = TubeletEmbedding(embed_dim=self.embed_dim, patch_size=self.patch_size)
+        positional_encoder = PositionalEncoder(embed_dim=self.embed_dim)
+
+        patches = tubelet_embedder(augment)
+        encoded_patches = positional_encoder(patches)
+
+        encoded_patches = layers.Dropout(0.3)(encoded_patches)
+
+        for _ in range(self.num_layers):
+            x1 = layers.LayerNormalization(epsilon=1e-6)(encoded_patches)
+            attention_output = layers.MultiHeadAttention(
+                num_heads=self.num_heads, key_dim=self.embed_dim // self.num_heads, dropout=0.2
+            )(x1, x1)
+
+            x2 = layers.Add()([attention_output, encoded_patches])
+
+            x3 = layers.LayerNormalization(epsilon=1e-6)(x2)
+            x3 = keras.Sequential(
+                [
+                    layers.Dense(units=self.embed_dim * 4, activation="gelu"),
+                    layers.Dropout(0.2),
+                    layers.Dense(units=self.embed_dim, activation="gelu"),
+                    layers.Dropout(0.2),
+                ]
+            )(x3)
+
+            encoded_patches = layers.Add()([x3, x2])
+
+        representation = layers.LayerNormalization(epsilon=self.layer_norm_eps)(encoded_patches)
+        representation = layers.GlobalAvgPool1D()(representation)
+
+        representation = layers.Dropout(0.5)(representation)
+
+        outputs = layers.Dense(units=self.outputSize, activation="softmax")(representation)
+
+        model = keras.Model(inputs=inputs, outputs=outputs)
+        return model
 
     def buildNetwork(self):
-        """Loads the ViViT model using the custom Tubelet and Positional layers."""
-        print(f"Tensorflow version: {tf.__version__}")
-        print("Calling buildNetwork for ViViT, loading from:", self.loaded_checkpoint)
-
+        """Builds the network, saving it to self.model."""
+        print(tf.__version__)
+        print("Calling buildNetwork", self.loaded_checkpoint)
         if self.loaded_checkpoint is not None:
-            self.model = keras.models.load_model(
-                self.loaded_checkpoint,
-                compile=False,
-                custom_objects={
-                    "TubeletEmbedding": TubeletEmbedding,
-                    "PositionalEncoder": PositionalEncoder
-                }
-            )
-            print("ViViT model loaded successfully.")
-            self.model.summary()
+            self.model = keras.models.load_model(self.loaded_checkpoint, compile=False,
+                                            custom_objects=self.custom_objects)
+            print("Got past the model loading")
         else:
-            print("Error: No checkpoint provided for ViViT model.")
+            self.model = self.create_vivit_classifier()
+        # Compile the model with the optimizer, loss function
+        # and the metrics.
+        optimizer = keras.optimizers.AdamW(learning_rate=self.learning_rate, weight_decay=1e-4)
+        self.model.compile(
+            optimizer=optimizer,
+            loss="sparse_categorical_crossentropy",
+            metrics=[
+                keras.metrics.SparseCategoricalAccuracy(name="accuracy"),
+                keras.metrics.SparseTopKCategoricalAccuracy(5, name="top-5-accuracy"),
+            ],
+        )
+
+    def train(self, epochs=100):
+        """Sets up the loss function and optimizer, and then trains the model on the current training data. Quits if no
+        training data is set up yet."""
+        # balancer = DataBalancer()
+        # weights = balancer.getClassWeightCells()
+        self.model.fit(
+            self.train_ds,
+            epochs=epochs,
+            verbose=1,
+            validation_data=self.val_ds,
+            # class_weight = weights,
+            callbacks=[
+                keras.callbacks.History(),
+                keras.callbacks.ModelCheckpoint(
+                    self.checkpoint_dir + self.data_name + "-{epoch:02d}-{val_loss:.2f}.keras",
+                    save_freq="epoch"  # save every epoch
+                ),
+                keras.callbacks.TensorBoard(
+                    log_dir=self.checkpoint_dir,
+                    write_images=False
+                ),
+                keras.callbacks.TerminateOnNaN()
+            ]
+        )
 
     def cleanImage(self, image, imageSize=224):
         """Process a single image into the correct input form for 2020 model, mainly used for testing."""
@@ -470,27 +361,22 @@ class CellPredictModelVIVIT(object):
         listed = np.asarray([cleanImages])
         modelPredict = self.model.predict(listed)
         maxIndex = np.argmax(modelPredict)
+        # print(f"Model Pred Shape: {modelPredict.shape}")
         return maxIndex, modelPredict[0]
 
     def findTopX(self, x, numList):
         """Returns the top X probabilities and their indices."""
+        # print("findTopX:", numList)
         topXInd = np.argsort(numList)[-x:][::-1]
         topXPercs = numList[topXInd]
         return topXPercs, topXInd
 
 
 if __name__ == "__main__":
-    print("Starting pipeline...")
-
-    # 1. Prepare the data generators
-    prepDatasets()
-    print("Datasets prepped successfully.")
-
-    # 2. Build the MoViNet model
-    buildNetwork()
-    print("Network built and compiled.")
-
-    # 3. Start training
-    train(epochs=epochs)
+    print("Executing training from scratch")
+    runner = CellPredictModelVIVIT()
+    runner.prepDatasets()
+    runner.buildNetwork()
+    runner.train()
     print("Training complete!")
 

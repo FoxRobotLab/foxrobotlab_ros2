@@ -13,11 +13,12 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 import matplotlib.pyplot as plt
+from keras.layers import TimeDistributed
 
-from src.match_seeker.scripts.olri_classifier.paths import *
-from src.match_seeker.scripts.olri_classifier.DataGeneratorLSTM import DataGeneratorLSTM
-from src.match_seeker.scripts.olri_classifier.imageFileUtils import makeFilename
-from src.match_seeker.scripts.olri_classifier.frameCellMap import FrameCellMap
+from olri_classifier.paths import *
+from olri_classifier.DataGeneratorLSTM import DataGeneratorLSTM
+from olri_classifier.imageFileUtils import makeFilename
+from olri_classifier.frameCellMap import FrameCellMap
 
 import time
 import random
@@ -82,8 +83,11 @@ class HeadingPredictModelLSTM(object):
         """Builds the network, saving it to self.model."""
         print (f"Tensorflow version: {tf.__version__}")
         print ("Calling buildNetwork", self.loaded_checkpoint)
+        self.model = self.CNN_LSTM()
+
         if self.loaded_checkpoint:
-            self.model = keras.models.load_model(self.loaded_checkpoint, compile=False)
+            self.model.load_weights(self.loaded_checkpoint)
+            # self.model = keras.models.load_model(self.loaded_checkpoint, compile=False)
             print ("Got past the model loading")
             self.model.summary()
         else:

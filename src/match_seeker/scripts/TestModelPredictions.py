@@ -16,7 +16,7 @@ import time
 from datetime import datetime
 
 import cv2
-from olri_classifier.cnnRunModel import ModelRunRGB
+from olri_classifier.cnnRunModel import ModelRunVIVIT
 import OlinWorldMap
 import socket
 import struct
@@ -28,17 +28,17 @@ class TestModelPredictions:
         # Set data path for Precision 5820
         self.routename = None
         self.mainPath = "/home/macalester/PycharmProjects/catkin_ws/src/match_seeker/res/"
-        self.evalPath = os.path.join(self.mainPath, "Evaluation2024Data/")
+        self.evalPath = os.path.join(self.mainPath, "classifier2022Data/DATA/Evaluation2024Data/")
         self.framesDataPath = os.path.join(self.evalPath, "FrameData/")
 
         # Set a directory for saving the predictions text file
         self.outputDir = os.path.join(self.evalPath, "Predictions/")
 
         # Set a directory for saving live accuracy data csv file
-        self.csvPath = os.path.join(self.evalPath, "Accuracy/2026Data_RGBModel.csv") #change file according to model running
+        self.csvPath ="/home/macalester/PycharmProjects/turtlebot_ros2_ws/src/foxrobotlab_ros2/src/Data2026_VIVIT.csv" #change file according to model running
 
         # Load the model and the building map
-        self.modelTester = ModelRunRGB()
+        self.modelTester = ModelRunVIVIT()
         self.olinMap = OlinWorldMap.WorldMap()
 
         # Read the folder path
@@ -161,6 +161,7 @@ class TestModelPredictions:
         missed_frames = 0
         while True:
             image, frame_name = self._getNextFrame(read_index)
+            # time.sleep(0.5) # attempting to recreate frequency of training data
             if image is None:
                 missed_frames += 1
                 print(f"Image not received. Retry {missed_frames}")
@@ -171,7 +172,7 @@ class TestModelPredictions:
                 continue
             missed_frames = 0
             self.imagesList.append(image)
-            if len(self.imagesList) < 10:
+            if len(self.imagesList) < 16:
                 self._displayFrameWithoutPrediction(image)
                 read_index += 1
                 continue
@@ -191,22 +192,18 @@ class TestModelPredictions:
         """
         if self.is_live:
             try:
-                # 1. Explicitly ask the server for the next frame
                 self.client_socket.sendall(b"GET_FRAME")
-                # 2. Read the 4-byte header to know the image payload size
                 # header = self.client_socket.recv(5) # hard coded for now, will need to be dynamic
                 header = self.client_socket.recv(16)
                 if not header:
                     return None, None
                 image_size = int(header.decode().strip())
-                # 3. Receive the exact amount of image bytes (handles packet fragmentation)
                 image_data = b""
                 while len(image_data) < image_size:
                     packet = self.client_socket.recv(image_size - len(image_data))
                     if not packet:
                         break
                     image_data += packet
-                # 4. Decode the JPEG binary data back into an OpenCV image array
                 nparr = np.frombuffer(image_data, np.uint8)
                 image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
                 frame_name = f"live_frame_{index}.png"
@@ -216,7 +213,7 @@ class TestModelPredictions:
                 self._reconnectSocket()
                 return None, None
         if self.is_video:
-            for _ in range(60):
+            for _ in range(600):
                 success, temp_image = self.videoCapture.read()
                 if not success:
                     return None, None

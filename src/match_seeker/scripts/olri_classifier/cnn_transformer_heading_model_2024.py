@@ -13,8 +13,8 @@ from keras import layers
 import tensorflow as tf
 import time
 
-from src.match_seeker.scripts.olri_classifier.DataGeneratorCNNTransformer import DataGenerator
-from src.match_seeker.scripts.olri_classifier.paths import *
+from olri_classifier.DataGeneratorCNNTransformer import DataGenerator
+from olri_classifier.paths import *
 
 class HeadingPredictModelCNNTransformer(object):
   def __init__(self, checkpoint_folder=None, loaded_checkpoint=None, images_folder=None, data_name=None,

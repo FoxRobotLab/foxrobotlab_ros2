@@ -62,6 +62,7 @@ class WorldMap(object):
 
     def getLocation(self, graphNode):
         """Returns the location data for a node in the graph."""
+        print(type(graphNode), graphNode)
         if self.isValidNode(graphNode):
             loc = self.olinGraph.getData(graphNode)
             return loc

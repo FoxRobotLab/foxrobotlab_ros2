@@ -14,7 +14,7 @@ import cv2
 import math
 import re
 
-from src.match_seeker.scripts.olri_classifier.paths import *
+from olri_classifier.paths import *
 
 
 class DataGeneratorLSTM(keras.utils.Sequence):
@@ -122,6 +122,7 @@ class DataGeneratorLSTM(keras.utils.Sequence):
                 headInd = self.potentialHeadings.index(headVal)
                 Y[bInd] = headInd
         return X, Y
+
     def traintestsplit(self, sequences, train_perc):
         '''Split the data passed in based on the evaluation ratio into
         training and testing datasets, assuming it's already randomized'''
@@ -202,36 +203,39 @@ class VideoRunData(object):
         return seqFramePaths, seqAnnotations
 
 
-
-def testingCalcOfSeqs():
-    for length in range(10, 26):
-        print("----------------------------")
-        for skipSize in range(1, 4):
-            for seqLen in range(1, 5):
-                print("---", length, skipSize, seqLen)
-                ll = length - seqLen + 1
-                calcSeqNum = math.ceil(ll / skipSize)
-                cnt = 0
-                for start in range(0, ll, skipSize):
-                    outStr = ""
-                    for i in range(seqLen):
-                        outStr += str(start + i) + " "
-                    # print(cnt, ":", outStr)
-                    cnt += 1
-                # print("Count of sequences", cnt)
-                if calcSeqNum != cnt:
-                    print("Calculated and count inconsistent:", calcSeqNum, cnt)
-
+#
+# def testingCalcOfSeqs():
+#     for length in range(10, 26):
+#         print("----------------------------")
+#         for skipSize in range(1, 4):
+#             for seqLen in range(1, 5):
+#                 print("---", length, skipSize, seqLen)
+#                 ll = length - seqLen + 1
+#                 calcSeqNum = math.ceil(ll / skipSize)
+#                 cnt = 0
+#                 for start in range(0, ll, skipSize):
+#                     outStr = ""
+#                     for i in range(seqLen):
+#                         outStr += str(start + i) + " "
+#                     # print(cnt, ":", outStr)
+#                     cnt += 1
+#                 # print("Count of sequences", cnt)
+#                 if calcSeqNum !=xx cnt:
+#                     print("Calculated and count inconsistent:", calcSeqNum, cnt)
+#
 
 if __name__ == "__main__":
     # print(DATA2022)
     # print(DATA2022 + "DATA/FrameData/")
-    dataGen = DataGeneratorLSTM(framesDataPath, textDataPath, skipSize=3, seqLength=5)
+    dataGen = DataGeneratorLSTM(framesDataPath, textDataPath, skipSize=5, seqLength=10)
     X, Y = dataGen[0]
     (b, s, h, w, d) = X.shape
     print(X.shape, Y.shape)
     for i in range(b):
         for j in range(s):
+            frame = X[i, j]
+            frame_to_show = (frame * 255).astype(np.uint8)
+            frame_to_show = cv2.cvtColor(frame_to_show, cv2.COLOR_RGB2BGR)
             print("seq = ", i, 'frame =', j)
-            cv2.imshow("Test", X[i,j])
+            cv2.imshow("Test", frame_to_show)
             cv2.waitKey(0)

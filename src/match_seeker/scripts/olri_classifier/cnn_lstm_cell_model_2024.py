@@ -14,9 +14,9 @@ import tensorflow as tf
 from tensorflow import keras
 import matplotlib.pyplot as plt
 
-from src.match_seeker.scripts.olri_classifier.paths import *
-from src.match_seeker.scripts.olri_classifier.DataGeneratorLSTM import DataGeneratorLSTM
-from src.match_seeker.scripts.olri_classifier.imageFileUtils import makeFilename
+from olri_classifier.paths import *
+from olri_classifier.DataGeneratorLSTM import DataGeneratorLSTM
+from olri_classifier.imageFileUtils import makeFilename
 
 import time
 import random
@@ -81,8 +81,12 @@ class CellPredictModelLSTM(object):
         """Builds the network, saving it to self.model."""
         print (f"Tensorflow version: {tf.__version__}")
         print ("Calling buildNetwork", self.loaded_checkpoint)
+        from keras.layers import TimeDistributed, LSTM
+
+        self.model = self.CNN_LSTM()
         if self.loaded_checkpoint is not None:
-            self.model = keras.models.load_model(self.loaded_checkpoint, compile=False)
+            #self.model = keras.models.load_model(self.loaded_checkpoint, compile=False)
+            self.model.load_weights(self.loaded_checkpoint)
             print ("Got past the model loading")
             self.model.summary()
         else:

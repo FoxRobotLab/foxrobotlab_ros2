@@ -1,90 +1,25 @@
-#!/usr/bin/env python2.7
+#!/usr/bin/env python3.12
 """--------------------------------------------------------------------------------
-cnnRunModel.py
-Authors: Susan Fox, Bea Bautista, Shosuke Noma, Yifan Wu
-Based on olin_cnn_predictor.py
+transformerRunModel.py
+Authors: Susan Fox,
+        Bea Bautista, Shosuke Noma, Yifan Wu (2022)
+        Oscar Reza Bautista, Elisa Avalos (2024)
+        Andre Mojica, Jana Abu Subha (2026)
 
-This provides a couple simple classes that match_seeker can use to run the models
-that have been trained. It runs both the cell prediction model and the heading prediction
-model, and combines the results, providing the top three cell predictions.
+Based on cnnRunModel.py
 
-Updated: 2024. Added the CNN-LSTM and CNN-Transformer models
---------------------------------------------------------------------------------"""
+This provides an interface for match_seeker to use to run the models
+that have been trained. It runs the cell predicting transformer model, plus and old and bad
+heading prediction CNN-LSTM and combines the results, providing the top three cell predictions.
+
+=--------------------------------------------------------------------------------"""
 from olri_classifier.paths import DATA, checkPts, textDataPath
 
-# from olri_classifier.cnn_cell_model_2019 import CellPredictModel2019
-# from src.match_seeker.scripts.olri_classifier.cnn_heading_model_2019 import HeadingPredictModel
-#
-# from src.match_seeker.scripts.olri_classifier.cnn_cell_model_RGBinput import CellPredictModelRGB
-# from src.match_seeker.scripts.olri_classifier.cnn_heading_model_RGBinput import HeadingPredictModelRGB
-#
-from olri_classifier.cnn_lstm_cell_model_2024 import CellPredictModelLSTM
-from olri_classifier.cnn_lstm_heading_model_2024 import HeadingPredictModelLSTM
 
-# from src.match_seeker.scripts.olri_classifier.cnn_transformer_cell_model_2024 import CellPredictModelCNNTransformer
-# from olri_classifier.cnn_transformer_heading_model_2024 import HeadingPredictModelCNNTransformer
-
-from src.foxrobotlab_ros2.src.VIVITransformer import CellPredictModelVIVIT
-
-# Comment above and uncomment below if needed
-# sys.path.append('/home/macalester/PycharmProjects/catkin_ws/src/match_seeker/scripts') # handles weird import errors
-# from paths import *
-# from cnn_cell_model_2019 import CellPredictModel2019
-# from cnn_cell_model_RGBinput import CellPredictModelRGB
-# from cnn_heading_model_2019 import HeadingPredictModel
-# from cnn_heading_model_RGBinput import HeadingPredictModelRGB
-# from cnn_lstm_cell_model_2024 import CellPredictModelLSTM
-# from cnn_lstm_heading_model_2024 import HeadingPredictModelLSTM
-
-# uncomment to use CPU
-# os.environ['CUDA_VISIBLE_DEVICES'] = ''
+from olri_classifier.cnn_transformer_cell_model_2024 import CellPredictModelCNNTransformer
+from olri_classifier.cnn_transformer_heading_model_2024 import HeadingPredictModelCNNTransformer
 
 
-class ModelRunVIVIT(object):
-    """This builds the VIVIT model, where only the image is an input """
-    def __init__(self):
-        VIVIT_2026_HEADING_CHECKPOINT = "2026CellPredictTransformer_checkpoint-0624260941/VIVIT-10-0.08.keras"
-        VIVIT_2026_CELL_CHECKPOINT = "2026ActualCellPredictTransformer_checkpoint-0626261616/VIVIT-50-0.10.keras"
-
-        self.cellModel = CellPredictModelVIVIT(
-            check_point_folder=checkPts,
-            # Change this as needed
-            loaded_checkpoint=VIVIT_2026_CELL_CHECKPOINT
-        )
-        self.cellModel.buildNetwork()
-
-        self.headingModel = CellPredictModelVIVIT(
-            check_point_folder=checkPts,
-            # Change this as needed
-            loaded_checkpoint=VIVIT_2026_HEADING_CHECKPOINT
-        )
-        self.headingModel.buildNetwork()
-
-
-    def getPrediction(self, images, mapGraph):
-        potentialHeadings = [0, 45, 90, 135, 180, 225, 270, 315, 360]
-
-
-        lastHeading, headOutputPercs = self.headingModel.predictSingleImageBatchAllData(images[-10:])
-        bestHead = potentialHeadings[lastHeading]
-        newCell, cellOutPercs = self.cellModel.predictSingleImageBatchAllData(images)
-        # print(f"New cell: {newCell}")
-        # print(f"Last heading: {lastHeading}")
-
-        bestThreePercs, bestThreeInd = self.cellModel.findTopX(3, cellOutPercs)
-        # print(bestThreePercs, bestThreeInd, type(bestThreeInd), bestThreeInd.shape, bestThreeInd.dtype)
-        best_cells_xy = []
-        for i, pred_cell in enumerate(bestThreeInd):
-            pred_cell = int(pred_cell)
-            if bestThreePercs[i] >= 0.00:
-                predXY = mapGraph.getLocation(pred_cell)
-                # print(predXY)
-                pred_xyh = (predXY[0], predXY[1], bestHead)
-                best_cells_xy.append(pred_xyh)
-
-        best_scores = [s * 100 for s in bestThreePercs]
-
-        return best_scores, best_cells_xy
 
 
 class ModelRun2019(object):
