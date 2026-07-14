@@ -2,7 +2,12 @@
 Tests the model predictions on a set of frames or a video from a data collection run, or a live run. It displays the images from the
 robot alongside text stating the model's predictions on cell and heading. It also creates a file with the returned
 predictions of the model and the actual cell and headings of each frame (currently, only for 'f' option)
-Currently works for the 2024 LSTM models.
+
+You may gather live data into a csv by pressing 'R' for record in the openCV window, which pauses image feed. Then, press
+A, B, C or X for correct prediction, 1-2 cells away from actual cell, 3-4 cells away, or completely wrong. See
+Accuracy Data Google Sheet for reference.
+
+Currently works for the 2024 LSTM models, and 2026 models.
 Works on Tensorflow and Keras 2.15.0 with Python 3.9, for reasons still unknown.
 Text files are saved to src/match_seeker/res/classifier2022Data/DATA/Evaluation2024Data/Predictions/
 

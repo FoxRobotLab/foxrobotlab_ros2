@@ -2,11 +2,10 @@
 VIVITPretrained.py
 
 Created: July 2026
-Adapted for 2D Pretrained Hugging Face Integration
+Author: Jana Abu-Subha
 
-This file adapts the original architecture to utilize a pretrained 2D Google ViT
-model via Hugging Face. It processes frames individually and aggregates them
-temporally to achieve video classification purely within Keras/TensorFlow.
+This file adapts the original VIVIT architecture to utilize a pretrained 2D Google ViT
+model via Hugging Face.
 --------------------------------------------------------------------------------"""
 import os
 os.environ["TF_USE_LEGACY_KERAS"] = "1"
@@ -42,14 +41,12 @@ class VideoAugmentation(layers.Layer):
 
   def _augment_single_video(self, video):
       """Applies identical random transforms across all frames of ONE video clip using XLA-safe logic."""
-      # 1. Generate symbolic boolean conditions
       do_brightness = tf.random.uniform([]) < self.probs["brightness"]
       do_contrast = tf.random.uniform([]) < self.probs["contrast"]
       do_translation = tf.random.uniform([]) < self.probs["translation"]
       do_erasing = tf.random.uniform([]) < self.probs["erasing"]
       do_noise = tf.random.uniform([]) < self.probs["noise"]
 
-      # 2. Generate unified parameters for this video clip
       b_factor = tf.random.uniform([], -0.25, 0.25)
       c_factor = tf.random.uniform([], 0.75, 1.25)
 
@@ -61,11 +58,9 @@ class VideoAugmentation(layers.Layer):
       e_y = tf.random.uniform([], 0, self.height - e_h, dtype=tf.int32)
       e_x = tf.random.uniform([], 0, self.width - e_w, dtype=tf.int32)
 
-      # 3. Apply changes vectorially across all frames using tf.cond
       video = tf.cond(do_brightness, lambda: video + b_factor, lambda: video)
       video = tf.cond(do_contrast, lambda: (video - 0.5) * c_factor + 0.5, lambda: video)
 
-      # Axis [1, 2] corresponds to (height, width), applying shifts identically over axis 0 (frames)
       video = tf.cond(
           do_translation,
           lambda: tf.roll(video, shift=[t_height, t_width], axis=[1, 2]),
@@ -73,22 +68,18 @@ class VideoAugmentation(layers.Layer):
       )
 
       def apply_erasing():
-          # XLA-COMPLIANT: Generate coordinate meshes of a completely static size
           rows = tf.range(self.height)
           cols = tf.range(self.width)
           cols_grid, rows_grid = tf.meshgrid(cols, rows)
 
-          # Use conditional comparison instead of variable tensor initialization
           in_x = (cols_grid >= e_x) & (cols_grid < e_x + e_w)
           in_y = (rows_grid >= e_y) & (rows_grid < e_y + e_h)
           in_box = in_x & in_y
 
-          # Wherever we are inside the box, fill with 0.0, otherwise keep 1.0
           mask = tf.where(in_box, 0.0, 1.0)
           mask = tf.expand_dims(mask, axis=-1)  # Shape: (height, width, 1)
           mask = tf.cast(mask, dtype=video.dtype)
 
-          # Broadcasts across all frames seamlessly
           return video * mask
 
       video = tf.cond(do_erasing, apply_erasing, lambda: video)
@@ -123,15 +114,11 @@ class HuggingFace2DViTWrapper(layers.Layer):
     super().__init__(**kwargs)
     self.vit_base = TFViTModel.from_pretrained("google/vit-base-patch16-224-in21k", use_safetensors=False)
 
-    # --- KERAS 3 COMPATIBILITY PATCH ---
-    # Inject the missing 'regularizer' attribute into raw TF variables
-    # so Keras 3's .fit() loop doesn't crash during loss calculation.
     for weight in self.vit_base.weights:
         if not hasattr(weight, 'regularizer'):
             weight.regularizer = None
 
   def call(self, inputs):
-    # return_dict=False bypasses KerasTensor attribute limitations
     outputs = self.vit_base(pixel_values=inputs, return_dict=False)
     return outputs[1]
 
@@ -205,18 +192,14 @@ class CellPredictModelVIVIT(object):
 
     x = VideoAugmentation(input_shape=self.input_shape)(inputs)
 
-    # Reshape and scale values for compatibility with Vit
     x_2d = layers.Lambda(lambda t: tf.reshape(t, [-1, self.image_size, self.image_size, 3]))(x)
     x_2d = layers.Lambda(lambda tensor: (tensor - 0.5) / 0.5)(x_2d)
     x_2d = layers.Lambda(lambda tensor: tf.transpose(tensor, perm=[0, 3, 1, 2]))(x_2d)
 
-    # Extract 2D features using our custom parameter-forwarding wrapper
     features_2d = HuggingFace2DViTWrapper()(x_2d)
 
-    # Reshape back to separate Batch and Temporal Sequence
     temporal_features = layers.Lambda(lambda t: tf.reshape(t, [-1, self.seqLength, 768]))(features_2d)
 
-    # Average the features across all 16 frames to get one cohesive video representation
     video_representation = layers.GlobalAveragePooling1D()(temporal_features)
 
     video_representation = layers.Dropout(0.5)(video_representation)
@@ -231,8 +214,6 @@ class CellPredictModelVIVIT(object):
 
     if self.loaded_checkpoint is not None:
       try:
-          # FIX: Drop by_name=True. The .weights.h5 format uses
-          # topological skip_mismatch natively to load partial weights.
           self.model.load_weights(self.loaded_checkpoint, skip_mismatch=True)
           print("Successfully loaded Dense classification head weights.")
       except Exception as e:

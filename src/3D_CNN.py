@@ -1,3 +1,13 @@
+"""--------------------------------------------------------------------------------
+3D_CNN.py
+
+Created: June 2026
+Author: Jana Abu-Subha
+
+This file is pasted from a colab notebook, hence the included DataGeneratorLSTM. This file loads a MoviNet
+pretrained model, but upon training and testing yielded a low accuracy and so was abandoned. Testing in the future with
+new DataGeneratorVIVIT.py may yield better results.
+--------------------------------------------------------------------------------"""
 import os
 import shutil
 from pathlib import Path

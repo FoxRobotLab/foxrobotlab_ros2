@@ -67,7 +67,6 @@ class PositionalEncoder(layers.Layer):
         self.positions = tf.range(0, num_tokens, 1)
 
     def call(self, encoded_tokens):
-        # Encode the positions and add it to the encoded tokens
         encoded_positions = self.position_embedding(self.positions)
         encoded_tokens = encoded_tokens + encoded_positions
         return encoded_tokens
@@ -94,31 +93,14 @@ class VideoAugmentation(layers.Layer):
             "noise": 0.25
         }
 
-        # self.brightness_layer = layers.RandomBrightness(factor=0.25, value_range=(0.0, 1.0))
-        # self.contrast_layer = layers.RandomContrast(factor=0.25)
-        # self.erasing_layer = layers.RandomErasing(factor=0.4, scale=(0.02, 0.2), value_range=(0.0, 1.0))
-        # self.noise_layer = layers.GaussianNoise(stddev=0.05)
-        # self.translation_layer = layers.RandomTranslation(height_factor=0.1, width_factor=0.1, fill_mode='constant')
-
-    # def _apply_conditionally(self, x, layer, probability, training):
-    #     """Helper method to conditionally execute a layer based on a probability threshold."""
-    #     random_val = tf.random.uniform(shape=[], minval=0.0, maxval=1.0)
-    #     return tf.cond( #using cond in place of an if statement
-    #         random_val < probability,
-    #         lambda: layer(x, training=training),  # Apply layer if true
-    #         lambda: x  # Pass through unchanged if false
-    #     )
-
     def _augment_single_video(self, video):
         """Applies identical random transforms across all frames of ONE video clip using XLA-safe logic."""
-        # 1. Generate symbolic boolean conditions
         do_brightness = tf.random.uniform([]) < self.probs["brightness"]
         do_contrast = tf.random.uniform([]) < self.probs["contrast"]
         do_translation = tf.random.uniform([]) < self.probs["translation"]
         do_erasing = tf.random.uniform([]) < self.probs["erasing"]
         do_noise = tf.random.uniform([]) < self.probs["noise"]
 
-        # 2. Generate unified parameters for this video clip
         b_factor = tf.random.uniform([], -0.25, 0.25)
         c_factor = tf.random.uniform([], 0.75, 1.25)
 
@@ -130,11 +112,9 @@ class VideoAugmentation(layers.Layer):
         e_y = tf.random.uniform([], 0, self.height - e_h, dtype=tf.int32)
         e_x = tf.random.uniform([], 0, self.width - e_w, dtype=tf.int32)
 
-        # 3. Apply changes vectorially across all frames using tf.cond
         video = tf.cond(do_brightness, lambda: video + b_factor, lambda: video)
         video = tf.cond(do_contrast, lambda: (video - 0.5) * c_factor + 0.5, lambda: video)
 
-        # Axis [1, 2] corresponds to (height, width), applying shifts identically over axis 0 (frames)
         video = tf.cond(
             do_translation,
             lambda: tf.roll(video, shift=[t_height, t_width], axis=[1, 2]),
@@ -147,17 +127,14 @@ class VideoAugmentation(layers.Layer):
             cols = tf.range(self.width)
             cols_grid, rows_grid = tf.meshgrid(cols, rows)
 
-            # Use conditional comparison instead of variable tensor initialization
             in_x = (cols_grid >= e_x) & (cols_grid < e_x + e_w)
             in_y = (rows_grid >= e_y) & (rows_grid < e_y + e_h)
             in_box = in_x & in_y
 
-            # Wherever we are inside the box, fill with 0.0, otherwise keep 1.0
             mask = tf.where(in_box, 0.0, 1.0)
             mask = tf.expand_dims(mask, axis=-1)  # Shape: (height, width, 1)
             mask = tf.cast(mask, dtype=video.dtype)
 
-            # Broadcasts across all frames seamlessly
             return video * mask
 
         video = tf.cond(do_erasing, apply_erasing, lambda: video)
@@ -174,7 +151,6 @@ class VideoAugmentation(layers.Layer):
         if not training:
             return inputs
 
-        # Use tf.map_fn to iterate cleanly through the batch elements
         augmented_batch = tf.map_fn(
             fn=self._augment_single_video,
             elems=inputs,
@@ -194,9 +170,8 @@ class CellPredictModelVIVIT(object):
                  data_name="VIVIT", output_size=271, image_size=224, seq_length=16, skip_size=16,
                  batch_size=8, learning_rate=1e-4, epochs=100, input_shape= (16, 224, 224, 3)):
 
-        # File System
-        run_id = time.strftime("%m%d%y%H%M")
         # For starting a new model
+        # run_id = time.strftime("%m%d%y%H%M")
         # self.checkpoint_dir = os.path.join(check_point_folder, f"2026ActualCellPredictTransformer_checkpoint-{run_id}/")
 
         # For loading a previous model
@@ -216,7 +191,7 @@ class CellPredictModelVIVIT(object):
         self.epochs = epochs
         self.input_shape= input_shape
 
-        # ViViT Network Transformer Architecture
+        # ViViT Architecture
         self.layer_norm_eps = 1e-6
         self.embed_dim = 256 # previously 128
         self.num_heads = 4 # previously 8
@@ -235,7 +210,6 @@ class CellPredictModelVIVIT(object):
             "VideoAugmentation": VideoAugmentation
         }
 
-        # Handle file paths if loading active weights
         if loaded_checkpoint is not None:
             self.loaded_checkpoint = os.path.join(check_point_folder, loaded_checkpoint)
         else:
@@ -307,8 +281,7 @@ class CellPredictModelVIVIT(object):
             print("Got past the model loading")
         else:
             self.model = self.create_vivit_classifier()
-        # Compile the model with the optimizer, loss function
-        # and the metrics.
+
         optimizer = keras.optimizers.AdamW(learning_rate=self.learning_rate, weight_decay=1e-4)
         self.model.compile(
             optimizer=optimizer,
@@ -322,8 +295,7 @@ class CellPredictModelVIVIT(object):
     def train(self, epochs=100):
         """Sets up the loss function and optimizer, and then trains the model on the current training data. Quits if no
         training data is set up yet."""
-        # balancer = DataBalancer()
-        # weights = balancer.getClassWeightCells()
+
         self.model.fit(
             self.train_ds,
             epochs=epochs,
@@ -334,7 +306,7 @@ class CellPredictModelVIVIT(object):
                 keras.callbacks.History(),
                 keras.callbacks.ModelCheckpoint(
                     self.checkpoint_dir + self.data_name + "-{epoch:02d}-{val_loss:.2f}.keras",
-                    save_freq="epoch"  # save every epoch
+                    save_freq="epoch"
                 ),
                 keras.callbacks.TensorBoard(
                     log_dir=self.checkpoint_dir,

@@ -1,6 +1,15 @@
+"""--------------------------------------------------------------------------------
+AnnotRewriter.py
+
+Created: July 2026
+Author: Jana Abu-Subha
+
+This file creates regional annotation data by iterating through cell annotation files, copying them into the new directory,
+and replacing the cell number with the region number it corresponds to.
+--------------------------------------------------------------------------------"""
+
 import os
 from pathlib import Path
-
 
 def populate_mapping_ranges(mapping_dict, region_name, range_list):
   """
@@ -63,6 +72,7 @@ if __name__ == "__main__":
   annot_data_dir = base_path / "AnnotData"
   region_data_dir = base_path / "RegionAnnotData"
 
+  # Script to create the region annotation files
   # region_data_dir.mkdir(parents=True, exist_ok=True)
   #
   # region_mapping = build_region_mapping()
@@ -76,6 +86,7 @@ if __name__ == "__main__":
   # print(f"Successfully processed {file_count} files.")
   # print(f"Region annotations saved to: {region_data_dir}")
 
+  # Script to rewrite labels from strings to representative numbers
   if not region_data_dir.exists():
     print(f"[ERROR] Directory not found: {region_data_dir}")
   else:
@@ -111,7 +122,7 @@ if __name__ == "__main__":
 
       file_count += 1
 
-    print(f"Successfully processed and updated {file_count} files in place.")
+    print(f"Successfully processed and updated {file_count} files")
 
 
 
