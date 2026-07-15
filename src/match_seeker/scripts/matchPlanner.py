@@ -41,9 +41,30 @@ import LocalizerStringConstants as loc_const
 import sys
 import os
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
+FOXROBOTLAB_SRC = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+if FOXROBOTLAB_SRC not in sys.path:
+    sys.path.insert(0, FOXROBOTLAB_SRC)
+
+# Server - Client Setup
 from turtle_control_processor import TurtleControlProcessor
-from remote_localizer import RemoteLocalizer
+from client_server.localizer_remote import RemoteLocalizer
+from client_server.gui_status_bridge import GuiStatusBridge
+from client_server.gui_headless import HeadlessSeekerGUI
+
+
+USE_REMOTE_LOCALIZER = os.environ.get('FOX_REMOTE_LOCALIZER', '1') != '0'
+REMOTE_LOCALIZER_IP = os.environ.get('FOX_LOCALIZER_SERVER_IP', '10.22.21.57')
+REMOTE_LOCALIZER_PORT = int(os.environ.get('FOX_LOCALIZER_SERVER_PORT', '62027'))
+REMOTE_LOCALIZER_TIMEOUT = float(os.environ.get('FOX_LOCALIZER_TIMEOUT', '2.0'))
+USE_GUI_STATUS_BRIDGE = os.environ.get('FOX_GUI_STATUS_BRIDGE', '1') != '0'
+GUI_STATUS_SERVER_IP = os.environ.get('FOX_GUI_STATUS_SERVER_IP', REMOTE_LOCALIZER_IP)
+GUI_STATUS_SERVER_PORT = int(os.environ.get('FOX_GUI_STATUS_SERVER_PORT', '62029'))
+USE_GUI_COMMAND_SERVER = os.environ.get('FOX_GUI_COMMAND_SERVER', '1') != '0'
+GUI_COMMAND_SERVER_HOST = os.environ.get('FOX_GUI_COMMAND_SERVER_HOST', '0.0.0.0')
+GUI_COMMAND_SERVER_PORT = int(os.environ.get('FOX_GUI_COMMAND_SERVER_PORT', '62030'))
+MATCH_LOOP_SLEEP = float(os.environ.get('FOX_MATCH_LOOP_SLEEP', '0.03'))
+DISPLAY_WINDOWS = os.environ.get('FOX_DISPLAY_WINDOWS', '0') == '1'
+USE_LEGACY_GUI = os.environ.get('FOX_USE_LEGACY_GUI', '0') == '1'
 
 
 class MatchPlanner(object):
@@ -59,10 +80,9 @@ class MatchPlanner(object):
         self.goalSeeker = None
         self.whichBrain = ""
 
-        # cv2.namedWindow("Turtlebot View")
-        # cv2.moveWindow("Turtlebot View",820,25)
-        cv2.namedWindow("MCL Display")
-        cv2.moveWindow("MCL Display", 1300, 25)
+        if DISPLAY_WINDOWS:
+            cv2.namedWindow("MCL Display")
+            cv2.moveWindow("MCL Display", 1300, 25)
 
         self.logger = OutputLogger.OutputLogger(True, False)
 
@@ -81,7 +101,19 @@ class MatchPlanner(object):
 
         self.ignoreLocationCount = 0
 
-        self.gui = SeekerGUI2.SeekerGUI2(self, self.robot)
+        if USE_LEGACY_GUI:
+            legacy_gui = SeekerGUI2.SeekerGUI2(self, self.robot)
+        else:
+            legacy_gui = HeadlessSeekerGUI(self, self.robot)
+        self.gui = GuiStatusBridge(
+            legacy_gui,
+            GUI_STATUS_SERVER_IP,
+            GUI_STATUS_SERVER_PORT,
+            enabled=USE_GUI_STATUS_BRIDGE,
+            command_host=GUI_COMMAND_SERVER_HOST,
+            command_port=GUI_COMMAND_SERVER_PORT,
+            command_enabled=USE_GUI_COMMAND_SERVER,
+        )
         self.gui.update()
 
     def run(self):
@@ -90,110 +122,239 @@ class MatchPlanner(object):
         iterationCount = 0
         self.setupNavBrain()
         self.brain.pause()
+        self.locator = self._createLocator()
+        self.gui.updateMessageText('Image localization active; waiting for navigation goal')
 
-        start, status = self.getStartLocation()
-
-        if start:
-            nodeAndPose = int(self.olinMap.convertLocToCell((self.startX, self.startY, self.startYaw))), (self.startX, self.startY, self.startYaw)
-            ready = (start and self.getNextGoalDestination())
-            self.locator = RemoteLocalizer(
-                self.robot,
-                '10.22.21.57',
-                62027
-            )
-            self.robot.unpauseMovement()
-        else:
-            ready = False
-
-        while ready and not self.robot.is_shutdown():
+        while not self.robot.is_shutdown():
             self.gui.update()
             image = self.robot.getImage()[0]
-            cv2.imshow("Turtlebot View", image)
-            cv_image = self.robot.getDepth()
-            cv_image = cv_image.astype(np.uint8)
-            im = cv2.normalize(cv_image, None, 0, 255, cv2.NORM_MINMAX)
-            ret, im = cv2.threshold(cv_image, 1, 255, cv2.THRESH_BINARY)
-            cv2.imshow("Depth View", im)
-            cv2.waitKey(20)
-
-            self.brain.unpause()
-
-            """------------------------------------------------------------------------------------------------
-            Team Summer 2019 more or less made no changes here and now the behavior in this while loop is out
-            of date. Start here to make changes to reactionary behavior.
-
-            lookAround() is currently not utilized. However in some cases it may be helpful i.e. when the
-            robot has decided to stare at a wall and not move because it doesn't know where it is.
-
-            Perhaps experiment with ways to reincorporate this behavior.
-            ---------------------------------------------------------------------------------------------------"""
-            if self.whichBrain == "loc":
-                self.lookAround()
-
-            # TODO: check to see if we still need this
-            # odomInfo = self.locator.odometer()
-            # self.checkCoordinates(odomInfo)
+            if DISPLAY_WINDOWS:
+                cv2.imshow("Turtlebot View", image)
+                cv_image = self.robot.getDepth()
+                cv_image = cv_image.astype(np.uint8)
+                im = cv2.normalize(cv_image, None, 0, 255, cv2.NORM_MINMAX)
+                ret, im = cv2.threshold(cv_image, 1, 255, cv2.THRESH_BINARY)
+                cv2.imshow("Depth View", im)
+                cv2.waitKey(20)
 
             self.logger.log("-------------- New Match ---------------")
-            time.sleep(0.03)
+            time.sleep(MATCH_LOOP_SLEEP)
+            status, nodeAndPose = self.locator.findLocation(image)
+            iterationCount += 1
 
-            if status == loc_const.temp_lost:  # bestMatch score < 5 but lostCount < 10
+            self._apply_pending_navigation_inputs(nodeAndPose)
+            if not self._navigation_ready():
+                self.brain.pause()
                 self.goalSeeker.setGoal(None, None, None)
-                # self.logger.log("======Goal seeker off")
-            elif status == loc_const.keep_going:  # LookAround found a match
-                if self.whichBrain != "nav":
-                    # self.speak("Navigating...")
-                    self.gui.navigatingMode()
-                    # self.robot.turnByAngle(35)  # turn back 35 degrees bc the behavior is faster than the matching
-                    self.brain.unpause()
-                    self.checkCoordinates(nodeAndPose)  # react to the location data of the match
-                    self.whichBrain = "nav"
-            elif status == loc_const.look:  # enter LookAround behavior
-                if self.whichBrain != "loc":
-                    # self.speak("Localizing...")
-                    self.gui.localizingMode()
-                    self.brain.pause()
-                    self.whichBrain = "loc"
-                self.goalSeeker.setGoal(None, None, None)
-                self.lookAround()
-            else:  # found a node
-                if self.whichBrain == "loc":
-                    self.whichBrain = "nav"
-                    # self.speak("Navigating...")
-                    self.gui.navigatingMode()
-                    self.brain.unpause()
-                if status == loc_const.at_node:
-                    # self.logger.log("Found a good enough match: " + str(matchInfo))
-                    self.respondToLocation(nodeAndPose)
+                continue
 
-                    if self.pathLoc.atDestination(nodeAndPose[0]):
-                        # reached destination. ask for new destination again. returns false if you're not at the final node
-                        # self.speak("Destination reached")
-                        self.robot.stop()
-                        self.robot.updateOdomLocation(nodeAndPose[1][0], nodeAndPose[1][1], nodeAndPose[1][2])
-                        # self.locator.odomScore = 100
-                        self.getStartLocation(nextDest=True)
-                        ready = self.getNextGoalDestination()
-                        print("matchPlanner 168 --------- "+str(ready))
-                        self.goalSeeker.setGoal(None, None, None)
-                        # self.logger.log("======Goal seeker off")
-                    else:
-                        h = self.pathLoc.getTargetAngle()
-                        currHead = nodeAndPose[1][-1]  # yaw
-                        self.goalSeeker.setGoal(self.pathLoc.getCurrentPath()[1], h, currHead)
-                        self.checkCoordinates(nodeAndPose)
-                        # self.logger.log("=====Updating goalSeeker: " + str(self.pathLoc.getCurrentPath()[1]) + " " +
-                        #                 str(h) + " " + str(currHead))
-
-                elif status == loc_const.close:
-                    self.checkCoordinates(nodeAndPose)
-                self.brain.unpause()
-
-            if ready:
-                status, nodeAndPose = self.locator.findLocation(image)
-                print("matchPlanner.run " + str(iterationCount) + " status=" + status + " whichBrain=" + self.whichBrain)
-                iterationCount += 1
+            self._run_navigation_step(status, nodeAndPose)
         self.shutdown()
+
+    def _run_navigation_step(self, status, nodeAndPose):
+        """React to the current localization result only after navigation is configured."""
+
+        self.brain.unpause()
+        if nodeAndPose is None:
+            self.goalSeeker.setGoal(None, None, None)
+            return
+
+        """------------------------------------------------------------------------------------------------
+        Team Summer 2019 more or less made no changes here and now the behavior in this while loop is out
+        of date. Start here to make changes to reactionary behavior.
+
+        lookAround() is currently not utilized. However in some cases it may be helpful i.e. when the
+        robot has decided to stare at a wall and not move because it doesn't know where it is.
+
+        Perhaps experiment with ways to reincorporate this behavior.
+        ---------------------------------------------------------------------------------------------------"""
+        if self.whichBrain == "loc":
+            self.lookAround()
+
+        if status == loc_const.temp_lost:  # bestMatch score < 5 but lostCount < 10
+            self.goalSeeker.setGoal(None, None, None)
+            # self.logger.log("======Goal seeker off")
+        elif status == loc_const.keep_going:  # LookAround found a match
+            if self.whichBrain != "nav":
+                # self.speak("Navigating...")
+                self.gui.navigatingMode()
+                # self.robot.turnByAngle(35)  # turn back 35 degrees bc the behavior is faster than the matching
+                self.brain.unpause()
+                self.checkCoordinates(nodeAndPose)  # react to the location data of the match
+                self.whichBrain = "nav"
+        elif status == loc_const.look:  # enter LookAround behavior
+            if self.whichBrain != "loc":
+                # self.speak("Localizing...")
+                self.gui.localizingMode()
+                self.brain.pause()
+                self.whichBrain = "loc"
+            self.goalSeeker.setGoal(None, None, None)
+            self.lookAround()
+        else:  # found a node
+            if self.whichBrain == "loc":
+                self.whichBrain = "nav"
+                # self.speak("Navigating...")
+                self.gui.navigatingMode()
+                self.brain.unpause()
+            if status == loc_const.at_node:
+                # self.logger.log("Found a good enough match: " + str(matchInfo))
+                self.respondToLocation(nodeAndPose)
+
+                if self.pathLoc.atDestination(nodeAndPose[0]):
+                    # reached destination. wait for the next destination while localization continues
+                    # self.speak("Destination reached")
+                    self.robot.stop()
+                    self.robot.updateOdomLocation(nodeAndPose[1][0], nodeAndPose[1][1], nodeAndPose[1][2])
+                    self.destinationNode = None
+                    self.goalSeeker.setGoal(None, None, None)
+                    self.gui.updateMessageText('Destination reached; waiting for next goal')
+                    # self.logger.log("======Goal seeker off")
+                else:
+                    h = self.pathLoc.getTargetAngle()
+                    currHead = nodeAndPose[1][-1]  # yaw
+                    self.goalSeeker.setGoal(self.pathLoc.getCurrentPath()[1], h, currHead)
+                    self.checkCoordinates(nodeAndPose)
+                    # self.logger.log("=====Updating goalSeeker: " + str(self.pathLoc.getCurrentPath()[1]) + " " +
+                    #                 str(h) + " " + str(currHead))
+
+            elif status == loc_const.close:
+                self.checkCoordinates(nodeAndPose)
+            self.brain.unpause()
+
+    def _createLocator(self):
+        if USE_REMOTE_LOCALIZER:
+            self.logger.log(
+                "Using remote localizer at {0}:{1}".format(
+                    REMOTE_LOCALIZER_IP,
+                    REMOTE_LOCALIZER_PORT,
+                )
+            )
+            return RemoteLocalizer(
+                self.robot,
+                REMOTE_LOCALIZER_IP,
+                REMOTE_LOCALIZER_PORT,
+                timeout=REMOTE_LOCALIZER_TIMEOUT,
+                gui=self.gui,
+            )
+
+        self.logger.log("Using local odometry localizer")
+        return Localizer2.LocalizerOdom(self.robot, self.olinMap, self.logger, self.gui)
+
+    def _apply_pending_navigation_inputs(self, nodeAndPose):
+        start_fields = self._pop_pending_start()
+        if start_fields is not None:
+            self._set_start_from_fields(start_fields, nodeAndPose)
+
+        goal_fields = self._pop_pending_goal()
+        if goal_fields is not None:
+            self._set_goal_from_fields(goal_fields, nodeAndPose)
+
+    def _pop_pending_start(self):
+        if hasattr(self.gui, 'popPendingStart'):
+            return self.gui.popPendingStart()
+        return None
+
+    def _pop_pending_goal(self):
+        if hasattr(self.gui, 'popPendingGoal'):
+            return self.gui.popPendingGoal()
+        return None
+
+    def _set_start_from_fields(self, fields, nodeAndPose):
+        pose = self._parse_start_pose(
+            str(fields.get('location', '')).strip(),
+            str(fields.get('yaw', '')).strip(),
+            nodeAndPose,
+        )
+        if pose is None:
+            self.gui.updateMessageText('Invalid start input; localization continues')
+            return False
+
+        self.startX, self.startY, self.startYaw = pose
+        self.robot.updateOdomLocation(x=self.startX, y=self.startY, yaw=self.startYaw)
+        self.gui.updateMessageText(
+            'Start set to ({0:.2f}, {1:.2f}, {2:.2f})'.format(
+                self.startX,
+                self.startY,
+                self.startYaw,
+            )
+        )
+        if self.destinationNode is not None:
+            self.pathLoc.beginJourney(self.destinationNode)
+        return True
+
+    def _set_goal_from_fields(self, fields, nodeAndPose):
+        destination = self._parse_destination(str(fields.get('destination', '')).strip())
+        if destination is None:
+            self.gui.updateMessageText('Invalid destination input; localization continues')
+            return False
+        if destination == -1:
+            self.shutdown()
+            return False
+
+        if self.startYaw is None:
+            self._use_current_pose_as_start(nodeAndPose)
+        if self.startYaw is None:
+            self.gui.updateMessageText('Waiting for a valid localized pose before starting navigation')
+            return False
+
+        self.destinationNode = destination
+        self.pathLoc.beginJourney(self.destinationNode)
+        self.robot.unpauseMovement()
+        self.gui.updateMessageText('Goal set to {0}; navigation enabled'.format(self.destinationNode))
+        return True
+
+    def _parse_start_pose(self, location_text, yaw_text, nodeAndPose):
+        current_pose = nodeAndPose[1] if nodeAndPose is not None else None
+        if not location_text:
+            if current_pose is None:
+                return None
+            userX, userY = current_pose[0], current_pose[1]
+        else:
+            location_parts = location_text.split()
+            try:
+                if len(location_parts) == 1:
+                    userNode = int(location_parts[0])
+                    if not self.olinMap.isValidNode(userNode):
+                        return None
+                    userX, userY = self.olinMap._nodeToCoord(userNode)
+                elif len(location_parts) == 2:
+                    userX = float(location_parts[0])
+                    userY = float(location_parts[1])
+                else:
+                    return None
+            except (TypeError, ValueError):
+                return None
+
+        try:
+            userYaw = float(yaw_text) if yaw_text else current_pose[2]
+        except (TypeError, ValueError, IndexError):
+            return None
+        return userX, userY, userYaw
+
+    def _parse_destination(self, destination_text):
+        try:
+            destination = int(destination_text)
+        except (TypeError, ValueError):
+            return None
+        if destination == -1 or self.olinMap.isValidNode(destination):
+            return destination
+        return None
+
+    def _use_current_pose_as_start(self, nodeAndPose):
+        if nodeAndPose is None:
+            return
+        pose = nodeAndPose[1]
+        self.startX, self.startY, self.startYaw = pose[0], pose[1], pose[2]
+        self.gui.updateMessageText(
+            'Using current localized pose as start: ({0:.2f}, {1:.2f}, {2:.2f})'.format(
+                self.startX,
+                self.startY,
+                self.startYaw,
+            )
+        )
+
+    def _navigation_ready(self):
+        return self.startYaw is not None and self.destinationNode is not None
 
     def getStartLocation(self, nextDest=False):
         #self.brain.pause()
@@ -228,17 +389,17 @@ class MatchPlanner(object):
         # userInputX = self.gui.userInputStartX
         # userInputY = self.gui.userInputStartY
 
-        print("User input:", userInputLoc, userInputYaw)
+        self.logger.log("User input: {0} {1}".format(userInputLoc, userInputYaw))
 
         userLocList = userInputLoc.split()
 
         # node
         if len(userLocList) == 1:
             userNode = int(userLocList[0])
-            print("User node:", userNode)
+            self.logger.log("User node: " + str(userNode))
             if self.olinMap.isValidNode(userNode) or userNode != -1:
                 userX, userY = self.olinMap._nodeToCoord(userNode)
-                print ("user x, y:", userX, userY)
+                self.logger.log("User x, y: {0}, {1}".format(userX, userY))
             else:
                 return -1,-1,-1
         # x y
@@ -435,7 +596,8 @@ class MatchPlanner(object):
         self.robot.stop()
         self.gui.stop()
         self.brain.stop()  # was stopAll
-        cv2.destroyAllWindows()
+        if DISPLAY_WINDOWS:
+            cv2.destroyAllWindows()
         if self.locator is not None and hasattr(self.locator, 'close'):
             self.locator.close()
         self.robot.shutdown()
