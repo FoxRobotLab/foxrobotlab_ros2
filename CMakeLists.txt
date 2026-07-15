@@ -11,15 +11,24 @@ find_package(ament_cmake_python REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclpy REQUIRED)
 
-# include the following folders into the CMake
-install(DIRECTORY
-  launch
-  config
-  DESTINATION share/${PROJECT_NAME}
-)
+# include the following folders into the CMake when present
+set(FOXROBOTLAB_SHARE_DIRS)
+foreach(dir launch config scripts)
+  if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${dir}")
+    list(APPEND FOXROBOTLAB_SHARE_DIRS ${dir})
+  endif()
+endforeach()
+
+if(FOXROBOTLAB_SHARE_DIRS)
+  install(DIRECTORY
+    ${FOXROBOTLAB_SHARE_DIRS}
+    DESTINATION share/${PROJECT_NAME}
+  )
+endif()
 
 install(DIRECTORY
   src/match_seeker
+  src/client_server
   DESTINATION share/${PROJECT_NAME}/src
   USE_SOURCE_PERMISSIONS
   PATTERN "__pycache__" EXCLUDE
@@ -33,14 +42,24 @@ ament_python_install_package(${PROJECT_NAME})
 install(PROGRAMS
   src/turtle_control_reciever.py
   src/turtle_control_processor.py
-  src/client_test.py
-  src/server_test.py
+  src/client_server/localizer_server.py
+  src/client_server/tensorflow_check.py
+  src/client_server/video_client.py
+  src/client_server/video_server.py
+  src/client_server/gui_unified.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
 install(PROGRAMS
   src/turtle_control_processor.py
   DESTINATION share/${PROJECT_NAME}/src
+)
+
+# Small utilities for checking ROS 2 discovery between hosts.
+install(PROGRAMS
+  tests/talker.py
+  tests/listener.py
+  DESTINATION lib/${PROJECT_NAME}
 )
 
 if(BUILD_TESTING)
