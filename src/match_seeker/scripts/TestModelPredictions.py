@@ -21,7 +21,7 @@ import time
 from datetime import datetime
 
 import cv2
-from olri_classifier.cnnRunModel import ModelRunVIVIT
+from olri_classifier.runModel import ModelRunVIVIT
 import OlinWorldMap
 import socket
 import struct

@@ -1,3 +1,10 @@
+"""--------------------------------------------------------------------------------
+DataGenerator based on previous versions  (DataGeneratorLSTM) but with changed train/validation split mechanism, as well
+as cropped images as opposed to downsized
+Created Summer 2026
+Edited by Jana Abu Subha
+
+--------------------------------------------------------------------------------"""
 import os
 import math
 from pathlib import Path
@@ -11,11 +18,6 @@ textDataPath = myPath / "AnnotData/"
 framesDataPath = myPath / "FrameData/"
 checkPts = myPath / "CHECKPOINTS/"
 
-"""
-DataGenerator based on previous versions but with changed train/validation split mechanism
-Created Summer 2026
-Edited by Jana Abu Subha
-"""
 class DataGeneratorVIVIT(keras.utils.Sequence):
     def __init__(self, framePath, annotPath, skipSize, seqLength,
                  batch_size, shuffle=True, randSeed=12342, train_perc=0.8,
@@ -141,7 +143,6 @@ class DataGeneratorVIVIT(keras.utils.Sequence):
         num_runs = len(self.runData)
         run_location_matrix = np.zeros((num_runs, self.num_locs))
 
-        # Build location presence matrix directly from memory
         for run_idx, runObj in enumerate(self.runData):
             cells_in_run = {annot['cell'] for annot in runObj.annotData.values()}
             for cell_id in cells_in_run:
@@ -152,35 +153,30 @@ class DataGeneratorVIVIT(keras.utils.Sequence):
         train_presence = np.zeros(self.num_locs)
         val_presence = np.zeros(self.num_locs)
 
-        # Sort by rarity in descending order (heaviest location profiles first)
         run_rarity = np.sum(run_location_matrix, axis=1)
         sorted_run_indices = np.argsort(-run_rarity)
 
         train_size = 1.0 - self.val_perc
         expected_ratio = train_size / self.val_perc
 
-        # Presence-Based Allocation Loop
         for idx in sorted_run_indices:
             run_profile = run_location_matrix[idx]
 
             train_score = np.sum(run_profile * (train_presence == 0))
             val_score = np.sum(run_profile * (val_presence == 0))
 
-            # If both sets need these locations equally, send it to train to build the baseline
             if train_score == val_score:
                 if len(train_run_indices) <= len(sorted_run_indices) * train_size:
                     train_run_indices.append(idx)
                     train_presence = np.maximum(train_presence, run_profile)
                 else:
                     val_presence = np.maximum(val_presence, run_profile)
-            # Otherwise, give it to whoever needs the missing locations more
             elif train_score > val_score:
                 train_run_indices.append(idx)
                 train_presence = np.maximum(train_presence, run_profile)
             else:
                 val_presence = np.maximum(val_presence, run_profile)
 
-        # Map the assigned runs back to their individual sequence frames
         train_sequences = []
         val_sequences = []
         for seq in all_sequences:
@@ -203,17 +199,14 @@ class VideoRunData(object):
         """Sets up the data for a single run, given the annotation filename and the path to the folder of images.
         It also takes optionally the number of frames to skip between starts of sequences, and the length of the
         sequence to produce."""
-        # Sequence basics
         self.skipSize = skipSize
         self.seqLength = seqLength
 
-        # identifying timestamp information
         results = re.findall("FrameDataReviewed(\d+)-(\d+)frames.txt", annotFile)
         [date, recTime] = results[0]
         self.date = date
         self.recTime = recTime
 
-        # Set up information about images and their filenames
         self.folderPath = dataPath / (str(date) + "-" + str(recTime) + "frames")
 
         if not os.path.exists(self.folderPath):
@@ -224,7 +217,6 @@ class VideoRunData(object):
         self.frameCount = len(self.imageNames)
         self.numSequences = math.ceil((self.frameCount - self.seqLength + 1) / self.skipSize)
 
-        # Set up information about locations and cells from the annotation file
         self.annotationsFile = annotPath / annotFile
         if not os.path.exists(self.annotationsFile):
             raise FileNotFoundError
