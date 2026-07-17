@@ -18,8 +18,8 @@ import time
 from pathlib import Path
 import tensorflow as tf
 from keras import layers
-from match_seeker.scripts.olri_classifier.DataGeneratorVIVIT import *
-from match_seeker.scripts.olri_classifier.paths import *
+from src.foxrobotlab_ros2.src.match_seeker.scripts.olri_classifier.DataGeneratorVIVIT import *
+from src.foxrobotlab_ros2.src.match_seeker.scripts.olri_classifier.paths import *
 
 myPath = Path("/home/macalester/PycharmProjects/catkin_ws/src/match_seeker/res/classifier2022Data/DATA/")
 

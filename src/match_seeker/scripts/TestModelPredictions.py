@@ -17,11 +17,12 @@ Edited: Summer 2026 by Jana Abu-Subha
 ------------------------------------------------------------------------------------------------------------------- """
 import csv
 import os
+os.environ["TF_USE_LEGACY_KERAS"] = "1"
 import time
 from datetime import datetime
 
 import cv2
-from olri_classifier.runModel import ModelRunVIVIT
+from olri_classifier.runModel import ModelRunHierarchy
 import OlinWorldMap
 import socket
 import struct
@@ -43,7 +44,7 @@ class TestModelPredictions:
         self.csvPath ="/home/macalester/PycharmProjects/turtlebot_ros2_ws/src/foxrobotlab_ros2/src/Data2026_VIVIT.csv" #change file according to model running
 
         # Load the model and the building map
-        self.modelTester = ModelRunVIVIT()
+        self.modelTester = ModelRunHierarchy()
         self.olinMap = OlinWorldMap.WorldMap()
 
         # Read the folder path

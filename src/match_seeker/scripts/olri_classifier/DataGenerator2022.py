@@ -1,10 +1,10 @@
 import numpy as np
-from src.match_seeker.scripts.olri_classifier.paths import DATA, frames
+from src.foxrobotlab_ros2.src.match_seeker.scripts.olri_classifier.paths import DATA, frames
 from tensorflow import keras
 import cv2
 import os
-from src.match_seeker.scripts.olri_classifier.imageFileUtils import extractNum
-from src.match_seeker.scripts.olri_classifier.frameCellMap import FrameCellMap
+from src.foxrobotlab_ros2.src.match_seeker.scripts.olri_classifier.imageFileUtils import extractNum
+from src.foxrobotlab_ros2.src.match_seeker.scripts.olri_classifier.frameCellMap import FrameCellMap
 
 """
 Updated Data Generator that preprocesses images into desired input form
