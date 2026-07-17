@@ -47,7 +47,7 @@ If `vcs import` fails, run it again once more.
 ### 4. Install additional system packages
 ```bash
 sudo apt update
-sudo apt install -y libusb-1.0-0-dev libftdi1-dev libuvc-dev ros-jazzy-ros-dev-tools
+sudo apt install -y libusb-1.0-0-dev libftdi1-dev libuvc-dev ros-dev-tools
 ```
 
 ### 5. Set up udev rules for hardware
