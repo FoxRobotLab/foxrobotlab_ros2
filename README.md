@@ -14,7 +14,7 @@ The Turtlebot4s are Merry and Pippin. These robots look identical to each other 
 
 **as of August 2026, tb4 are still being integrated into the codebase**
 ## Installation
-If you are setting up a brand-new machine, use the steps below. If you are working on one of the lab workstations, you can usually skip these setup steps because the expected environment is already installed there:
+**If you are setting up a brand-new machine, use the steps below.** If you are working on one of the lab workstations, you can usually skip these setup steps because the expected environment is already installed there:
 - Ubuntu Noble
 - ROS 2 Jazzy
 - TensorFlow 2.18
@@ -75,36 +75,73 @@ source ~/ros2_ws/install/setup.bash
 ```
 
 Installation is complete!!
+## Running matchSeeker (Main Program)
+Below are instructions on how to run the main program for Susan's research.
 
-## To run the program
+If you are using one of the lab workstations, the environment is usually already configured. If you are on a new machine, make sure the workspace has been built and sourced first.
 
-**Make sure to source the terminal before anything** 
+### Before you start
+```bash
+source .bashrc
+```
 
-On the terminal in the Workstation/server:
-1) Make sure to build if not already
-     - cd PycharmProjects/turtlebot2_ros2_ws/
-     - colcon build --packages-select foxrobotlab_ros2
-     - source it again in the home directory
+### On the workstation
+1. Select the robot profile:
+```bash
+choose_robot tb2
+# or
+choose_robot tb4
+```
 
-2) running the GUI and server side program
-     - ros2 launch foxrobotlab_ros2 laptop_servers.launch.py
-  
-On the robot/client
-1) Make sure to build similar to the workstation
-2) running the main program and robot startup
-    - ros2 launch foxrobotlab_ros2 robot_system.launch.py
+2. In a second terminal, connect to the robot using the lab-specific alias:
+```bash
+# Turtlebot2s
+speedy_connect
+# or
+cutie_connect
 
-## Base robot bringup
-To launch the robot ONLY
-- ros2 launch foxrobotlab_ros2 kobuki.launch.py
+# Turtlebot4s
+merry_connect
+#or
+pippin_connect
+```
 
-for camera functionality
-- ros2 launch foxrobotlab_ros2 kobuki.launch.py astra:=true
+3. Start the workstation-side GUI and listener services:
+```bash
+ros2 launch foxrobotlab_ros2 laptop_servers.launch.py
+```
 
-for teleop
-- ros2 run teleop_twist_keyboard teleop_twist_keyboard
+### On the robot/client
+Start the robot-side stack:
+```bash
+ros2 launch foxrobotlab_ros2 robot_system.launch.py
+```
 
-to see camera/video feed
-- ros2 run image_view image_view --ros-args -r image:=/color/image_raw
+### Expected behavior
+- The workstation terminal launches the localizer server and GUI.
+- The robot terminal launches the base, camera, and planner-related nodes.
+- Once both sides are running, enter a starting cell, yaw, and destination cell in the GUI to have the robot start autonomously navigating.
+
+### Troubleshooting
+If the planner cannot connect, confirm that:
+- both terminals were sourced
+- ROS Discovery Server is turned on
+- the workspace was rebuilt after recent changes <- important to be aware of
+
+If needed, rebuild and re-source the workspace:
+```bash
+cd PycharmProjects/turtlebot_ros2_ws
+colcon build --packages-select foxrobotlab_ros2 --symlink-install
+source install/setup.bash
+```
 
 ## Useful Links and Tutorials
+Credit to [Intelligent Robotics Lab](https://intelligentroboticslab.gsyc.urjc.es/) research group from the [Universidad Rey Juan Carlos](https://www.urjc.es/) for the ROS2 Kobuki drivers.
+
+**[ROS2 Crash Courses by Robotics Back-End](https://www.youtube.com/watch?v=Gg25GfA456o&list=PLLSegLrePWgJk6dfV-UXSh2TZ74wNntWt)**
+
+**[ROS2 Courses Intermediate by Automatic Addison](https://www.youtube.com/@automaticaddison/playlists)**
+
+[Susan Fox Lab Documentation](https://docs.google.com/document/d/1IJRMkSybLFnE4yOeIK3kVz7pgWu4PH3ltX2sdyCFDuU/edit?usp=sharing)
+
+[Andre Research Documentation](https://docs.google.com/document/d/1eTwPKTrFZLToqb6qz6YCPc723MG57R67jhoT5S0uStA/edit?usp=sharing)
